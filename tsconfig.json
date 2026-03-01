@@ -1,0 +1,18 @@
+{
+    "compilerOptions": {
+        "target": "es2024",
+        "module": "esnext",
+        "lib": [
+            "ESNext",
+            "dom"
+        ],
+        "outDir": "./dist",
+        "strict": true,
+        "baseUrl": "./",
+        "forceConsistentCasingInFileNames": true,
+        "noImplicitThis": true,
+        "moduleResolution": "bundler"
+    },
+    "include": ["src/**/*"],
+    "exclude": ["node_modules", "dist"]
+}

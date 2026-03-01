@@ -1,0 +1,165 @@
+import Anthropic from '@anthropic-ai/sdk'
+import { ContentBlock, GenerateInferenceParams, GenericMessage, Tool } from './types'
+import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod'
+import { ZodType } from 'zod'
+import { ILLM, LLM } from './llm'
+
+export default class Claude extends LLM implements ILLM {
+    private claudeClient: Anthropic
+    generativeModel = 'claude-haiku-4-5'
+
+    /**
+     * Initialize Claude Client with the required API key and configuration.
+     */
+    constructor (config: { apiKey: string; model?: string }) {
+        super()
+
+        const { apiKey, model } = config
+
+        if (model) {
+            this.generativeModel = model
+        }
+
+        this.claudeClient = new Anthropic({
+            apiKey,
+        })
+    }
+
+    /**
+     * Convert generic tools to Claude formatted tools
+     */
+    protected createClaudeTools (tools: Tool[]) {
+        return tools.map(t => ({
+            name: t.name,
+            description: t.description,
+            input_schema: t.parameters,
+        }))
+    }
+
+    /**
+     * Convert generic content blocks to Claude formatted message
+     */
+    protected createClaudeMessages (messages: GenericMessage[]) {
+        return messages.map(m => ({
+            role: m.role,
+            content: typeof m.content === 'string'
+                ? m.content
+                : m.content.map(c => {
+                    if (c.type === 'tool_result') {
+                        return {
+                            type: c.type,
+                            tool_use_id: c.id,
+                            content: c.content,
+                        }
+                    }
+
+                    return c
+                }),
+        }))
+    }
+
+    /**
+     * Convert Claude formatted messages into generic content blocks
+     */
+    protected createGenericContentBlocks (response: Anthropic.Beta.Messages.BetaMessage) {
+        return response.content.reduce<ContentBlock[]>((acc, b) => {
+            if (b.type === 'thinking') {
+                acc.push({
+                    type: 'thinking',
+                    signature: b.signature,
+                    thinking: b.thinking,
+                })
+            }
+            if (b.type === 'tool_use') {
+                acc.push({
+                    type: 'tool_use',
+                    input: typeof b.input === 'string' 
+                        ? JSON.parse(b.input || '{}')
+                        : b.input as Record<string, unknown>,
+                    name: b.name,
+                    id: b.id,
+                })
+            }
+            if (b.type === 'text') {
+                acc.push({
+                    type: 'text',
+                    text: b.text,
+                })
+            }
+            return acc
+        }, [])
+    }
+
+    /**
+     * Generate inference
+     */
+    async generateInference<T extends Record<string, unknown>, U extends ZodType<T>> (
+        params: GenerateInferenceParams<U>,
+    ) {
+        const {
+            messages,
+            model: customModel,
+            systemMessage,
+            responseSchema,
+            tools,
+            toolChoice,
+        } = params
+        const model = customModel || this.generativeModel
+
+        // configure inference generation
+        const inferenceParams: Anthropic.Beta.MessageCreateParamsNonStreaming = {
+            model,
+            messages: this.createClaudeMessages(messages),
+            max_tokens: 5000,
+            system: systemMessage,
+            betas: [ 'structured-outputs-2025-11-13' ],
+            output_format: betaZodOutputFormat(responseSchema),
+        }
+
+        // if any tools are passed, convert them to the correct format and attach to response creation config
+        if (tools) {
+            const claudeTools = this.createClaudeTools(tools)
+            inferenceParams.tools?.push(...claudeTools)
+
+            if (toolChoice) {
+                inferenceParams.tool_choice = typeof toolChoice === 'object'
+                    ? { 
+                        type: 'tool', 
+                        name: toolChoice.name,
+                        disable_parallel_tool_use: true,
+                    }
+                    : {
+                        type: toolChoice,
+                        disable_parallel_tool_use: true,
+                    }
+            }
+        }
+
+        const response = await this.claudeClient.beta.messages.create(inferenceParams)
+
+        // convert response back to generic content blocks
+        const responseContentBlocks = this.createGenericContentBlocks(response)
+
+        // if last message is text, then it's a structured response so 
+        // convert JSON stringified version of structured output to JS object
+        const lastContentBlock = responseContentBlocks[responseContentBlocks.length - 1]
+        const structuredResponse = lastContentBlock.type === 'text' 
+            ? this.extractStructuredReturn(lastContentBlock, responseSchema)
+            : null
+
+        const completionReturn = {
+            response: {
+                contentBlocks: responseContentBlocks,
+                stopReason: response.stop_reason,
+            },
+            structuredResponse,
+            tokenUsage: {
+                input: response.usage?.input_tokens || 0,
+                output: response.usage?.output_tokens || 0,
+            },
+            model,
+        }
+
+        return completionReturn
+    }
+}
