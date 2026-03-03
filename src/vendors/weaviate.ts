@@ -24,10 +24,14 @@ export default class Weaviate {
     private weaviateClient: WeaviateClient | undefined = undefined
     private memoryCollection: Collection<Memory, string, undefined> | undefined = undefined
 
+    // Query config
+    returnMetadata = [ 'creationTime', 'updateTime' ] as const satisfies string[]
+    returnProperties = [ 'quote', 'summary', 'tags', 'source', 'term', 'isCore' ] as const satisfies string[]
+
     // Memory collection properties
     private properties: PropertyConfigCreate<Memory>[] = [
         {
-            name: 'content',
+            name: 'quote',
             dataType: dataType.TEXT,
         },
         {
@@ -123,7 +127,7 @@ export default class Weaviate {
         // convert memories into Weaviate data objects for storage
         const dataObjects = memories.map(m => ({
             properties: {
-                content: m.content,
+                quote: m.quote,
                 summary: m.summary,
                 tags: m.tags,
                 source: m.source,
@@ -166,8 +170,8 @@ export default class Weaviate {
 
         // configure return options for weaviate request
         const returnOpts: SearchOptions<Memory, undefined> = {
-            returnMetadata: [ 'score', 'creationTime', 'updateTime' ],
-            returnProperties: [ 'content', 'summary', 'tags', 'source', 'term', 'isCore' ],
+            returnMetadata: [ 'score', ...this.returnMetadata ],
+            returnProperties: this.returnProperties,
             limit,
         }
 
@@ -194,6 +198,25 @@ export default class Weaviate {
     }
 
     /**
+     * Fetch memories by ID
+     */
+    async fetchMemoriesById (memoryIds: string[]) {
+        if (!this.memoryCollection) {
+            throw new Error('You must initialize the Weaviate connection first.')
+        }
+        
+        const results = await this.memoryCollection.query.fetchObjects(
+            {
+                filters: this.memoryCollection.filter.byId().containsAny(memoryIds),
+                returnMetadata: this.returnMetadata,
+                returnProperties: this.returnProperties,
+            },
+        )
+
+        return results.objects
+    }
+
+    /**
      * Fetch memories by specific property values
      */
     async fetchMemories (params?: { 
@@ -206,8 +229,8 @@ export default class Weaviate {
 
         const query: FetchObjectsOptions<Memory, undefined> = {
             limit: params?.limit || 100,
-            returnMetadata: [ 'creationTime', 'updateTime' ],
-            returnProperties: [ 'content', 'summary', 'tags', 'source', 'term', 'isCore' ],
+            returnMetadata: this.returnMetadata,
+            returnProperties: this.returnProperties,
         }
         if (params?.filter) {
             query.filters = this.memoryCollection.filter.byProperty(params.filter.key).equal(params.filter.value)

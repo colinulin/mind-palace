@@ -61,7 +61,7 @@ export default class Claude extends LLM implements ILLM {
     /**
      * Convert Claude formatted messages into generic content blocks
      */
-    protected createGenericContentBlocks (response: Anthropic.Beta.Messages.BetaMessage) {
+    static createGenericContentBlocks (response: Anthropic.Beta.Messages.BetaMessage | Anthropic.Messages.Message) {
         return response.content.reduce<ContentBlock[]>((acc, b) => {
             if (b.type === 'thinking') {
                 acc.push({
@@ -138,7 +138,7 @@ export default class Claude extends LLM implements ILLM {
         const response = await this.claudeClient.beta.messages.create(inferenceParams)
 
         // convert response back to generic content blocks
-        const responseContentBlocks = this.createGenericContentBlocks(response)
+        const responseContentBlocks = Claude.createGenericContentBlocks(response)
 
         // if last message is text, then it's a structured response so 
         // convert JSON stringified version of structured output to JS object

@@ -5,20 +5,20 @@ import z from 'zod'
  * Response schema for new memories
  */
 const memory = (tags: string[]) => z.object({
-    content: z.string().meta({
-        description: 'The full memory including all important details for future reference',
+    quote: z.string().meta({
+        description: 'The exact text including and surrounding the important information. This should be just enough of the original text to give context.',
     }),
     summary: z.string().meta({
-        description: '3-5 word summary of the memory for easier searching',
+        description: 'A concise summary of the important details for future reference.',
     }),
     tags: z.array(z.enum(tags)).meta({
-        description: 'Terms to use for grouping and searching for relevant memories',
+        description: 'Terms to use for grouping and searching for relevant memories.',
     }),
     source: z.string().meta({
-        description: '1-5 word reference describing where the information originated',
+        description: '1-5 word reference describing where the information originated.',
     }),
     term: z.enum([ 'long', 'short' ]).meta({
-        description: 'Long memories are those that are unlikely to change and Short memories are those that have a high likelihood of changing in the near future',
+        description: 'Long memories are those that are unlikely to change and are widely applicable across different kinds of requests and Short memories are those that have a high likelihood of changing in the near future or are only relevant for a limited time or context.',
     }),
     isCore: z.boolean().meta({
         description: 'If true, this memory will be included at the beginning of all future chat sessions. Core memories contain information that is relevant in all contexts and can improve most conversations.',

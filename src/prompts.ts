@@ -1,6 +1,6 @@
 /* eslint-disable max-len */
-import { Memory, WeaviateMemory } from './types'
-import { ContentBlock, userRole } from './vendors/types'
+import { Memory } from './types'
+import { ContentBlock, userRole, WeaviateMemory } from './vendors/types'
 
 /**
  * Prompt to find memories relevant to a given context
@@ -25,7 +25,7 @@ Past conversations and research have been converted into memories and stored in 
                 name: 'search_memories',
                 description: 'Perform a vector store hybrid search (alpha=0.5) on all available memories. If no relevant memories are found, an empty array will be returned.',
                 parameters: {
-                    type: 'object',
+                    type: 'object' as const,
                     properties: {
                         query: {
                             type: 'string',

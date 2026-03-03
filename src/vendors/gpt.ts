@@ -100,7 +100,7 @@ export default class GPT extends LLM implements ILLM {
     /**
      * Convert GPT formatted messages into generic content blocks
      */
-    protected createGenericContentBlocks (response: OpenAI.Responses.Response) {
+    static createGenericContentBlocks (response: OpenAI.Responses.Response) {
         return response.output.reduce<ContentBlock[]>((acc, b) => {
             if (b.type === 'reasoning') {
                 b.summary.forEach(s => {
@@ -202,7 +202,7 @@ export default class GPT extends LLM implements ILLM {
         const response = await this.gptClient.responses.create(responseCreateConfig)
 
         // convert response back to generic content blocks
-        const responseContentBlocks = this.createGenericContentBlocks(response)
+        const responseContentBlocks = GPT.createGenericContentBlocks(response)
 
         // if last content block is text, then it's a structured response so 
         // convert JSON stringified version of structured output to JS object

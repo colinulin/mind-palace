@@ -1,5 +1,7 @@
 import { output, ZodType } from 'zod'
 import { Tool as AnthropicTool } from '@anthropic-ai/sdk/resources/messages'
+import { Vectors, WeaviateObject } from 'weaviate-client'
+import { Memory } from '../types'
 
 // Type for prompt messages role field
 export const userRole = 'user' as const
@@ -53,9 +55,7 @@ export type GenerateInferenceParams<U extends ZodType<Record<string, unknown>>> 
     tools?: Tool[]
     toolChoice?: ToolChoice
 }
-export type GenerateInference = <T extends Record<string, unknown>, U extends ZodType<T>>(
-    params: GenerateInferenceParams<U>
-) => Promise<{
+export type GenerateInferenceReturn<T extends Record<string, unknown>, U extends ZodType<T>> = {
     response: {
         contentBlocks: ContentBlock[]
         stopReason: StopReason
@@ -66,4 +66,10 @@ export type GenerateInference = <T extends Record<string, unknown>, U extends Zo
         output: number
     }
     model: string
-}>
+}
+export type GenerateInference<T extends Record<string, unknown>, U extends ZodType<T>> = (
+    params: GenerateInferenceParams<U>
+) => Promise<GenerateInferenceReturn<T, U>>
+
+// Memory format directly from Weaviate store
+export type WeaviateMemory = WeaviateObject<Memory, number[] | Vectors>

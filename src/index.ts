@@ -1,12 +1,12 @@
-import { ContentBlock } from './vendors/types'
+import { ContentBlock, ToolUseBlock } from './vendors/types'
 import Claude from './vendors/claude'
 import GPT from './vendors/gpt'
 import responseSchemas from './responseSchemas'
 import prompts from './prompts'
 import TokenCounter from './tokenCounter'
-import { Memory } from './types'
+import { IngestingMessage, Memory } from './types'
 import Weaviate from './vendors/weaviate'
-import { chunkArray } from './utils'
+import { chunkArray, transformLLMMessagesToGenericBlocks } from './utils'
 
 // Memory store
 export class MindPalace {
@@ -26,7 +26,7 @@ export class MindPalace {
             embeddingModel?: string
             generativeModel?: string
         }
-        gptConfig: { // GPT config is required for embedding generation
+        gptConfig: { // GPT config is currently required for embedding generation
             apiKey: string
             embeddingModel?: string
             generativeModel?: string
@@ -65,7 +65,22 @@ export class MindPalace {
     }
 
     // Extract memories from context
-    async extractMemories (context: ContentBlock[] | string) {
+    async extractMemories (params: IngestingMessage) {
+        let context: string | ContentBlock[]
+        if ('llm' in params) {
+            if (params.llm === 'claude') {
+                context = transformLLMMessagesToGenericBlocks({ messages: params.context, llm: params.llm })
+            }
+            else if (params.llm === 'gpt') {
+                context = transformLLMMessagesToGenericBlocks({ messages: params.context, llm: params.llm })
+            }
+            else {
+                throw new Error('Invalid context format.')
+            }
+        } else {
+            context = params.context
+        }
+
         const responseSchema = responseSchemas.extractedMemories(this.tags)
         const { messages, systemMessage } = prompts.memoryExtraction(context)
         const { structuredResponse, tokenUsage, model } = await this.LLM.generateInference({
@@ -78,11 +93,13 @@ export class MindPalace {
         return structuredResponse?.memories || []
     }
 
-    // Search memory and return top N relevant memories
-    async searchMemories (queryString: string, alpha?: number) {
+    // Search memory based on a search string and return top N relevant memories
+    async searchMemories (params: { queryString: string; limit?: number; alpha?: number }) {
+        const { queryString, limit, alpha } = params
+
         const vectorStoreResults = await this.Weaviate.searchMemories({
             queryString,
-            limit: 5,
+            limit: limit ?? 5,
             mode: 'hybrid',
             alpha: alpha || 0.5,
         })
@@ -94,22 +111,59 @@ export class MindPalace {
     async findRelevantMemories (context: ContentBlock[] | string) {
         const { messages, systemMessage, tools } = prompts.relevantMemorySearch(context)
         const responseSchema = responseSchemas.relevantMemoryIds()
-        const { response, tokenUsage, model } = await this.LLM.generateInference({
+        const generationConfig = {
             responseSchema,
             messages,
             systemMessage,
             tools,
-        })
-        // TODO: handle tool calling
-        // TODO: call Weaviate to fetch memories based on IDs
-        // TODO: return memories
+        }
+        const { response, structuredResponse, tokenUsage, model } = await this.LLM.generateInference(generationConfig)
+        this.tokenUsage.trackInference({
+            input: tokenUsage.input,
+            output: tokenUsage.output,
+        }, model)
+        
+        // grab all of the last content blocks that are tool_use type
+        const toolUseBlocks: ToolUseBlock[] = []
+        response.contentBlocks.reverse()
+        for (const block of response.contentBlocks) {
+            if (block.type !== 'tool_use') {
+                return
+            }
+
+            toolUseBlocks.push(block)
+        }
+
+        // process tool use blocks (if present) to generate a list of relevant memory IDs
+        let memoryIds: string[]
+        if (toolUseBlocks.length) {
+            const toolUseResponse = await this.LLM.processToolUsage({
+                toolUseBlocks,
+                MindPalace: this,
+                continueGenerationAfterProcessing: true,
+                retryLimit: 3,
+                generationConfig,
+            })
+            this.tokenUsage.trackInference({
+                input: toolUseResponse.tokenUsage.input,
+                output: toolUseResponse.tokenUsage.output,
+            }, toolUseResponse.model)
+            memoryIds = toolUseResponse.structuredResponse?.memoryIds || []
+        } else {
+            memoryIds = structuredResponse?.memoryIds || []
+        }
+
+        // get memories from vector store by ID
+        const memories = await this.Weaviate.fetchMemoriesById(memoryIds)
+
+        return memories
     }
 
-    // Fetch all core memories and concat
+    // Fetch all core memories
     async fetchCoreMemories () {
         const coreMemories = await this.Weaviate.fetchMemories({ filter: { key: 'isCore', value: true } })
 
-        return coreMemories.map(cm => cm.properties.content)
+        return coreMemories.map(cm => cm.properties.summary)
     }
 
     // Find and merge similar memories in vector store
@@ -119,7 +173,7 @@ export class MindPalace {
         // iterate over all new memories searching for highly similar ones already in the vector db
         const nearMemoryGroups = await Promise.all(newMemories.map(async m => {
             const nearMemory = (await this.Weaviate.searchMemories({
-                queryString: m.content,
+                queryString: m.quote,
                 limit: 1,
                 mode: 'nearText',
             })).objects[0]
@@ -177,11 +231,11 @@ export class MindPalace {
     }
     
     // Ingest a converstion and store it as memories
-    async processConversation (
-        conversation: ContentBlock[] | string, 
-        metadata: Record<string, unknown>,
-    ) {
-        const newMemories = await this.extractMemories(conversation)
+    async processConversation (params: IngestingMessage & {
+        metadata: Record<string, unknown>
+    }) {
+        const { metadata } = params
+        const newMemories = await this.extractMemories(params)
         const { updatedMemories, staleMemoryIds } = await this.findAndMergeNewMemories(newMemories)
         await Promise.all([
             this.Weaviate.deleteStaleMemories(staleMemoryIds),
@@ -197,9 +251,13 @@ export class MindPalace {
  * - Add automated tests
  * - Determine max lengths for memories
  * - Add Gemini
+ * - Add Readme.md
+ * - Add Contribution.md
+ * - Make it possible to write your own LLM and Vector Store classes
  * 
  * Future cleanup:
  * - Abstract longer methods from MindPalace
  * - Improve isCore prompt
  * - Figure out how to keep track of IDs of memories during merge so we can update and not delete
+ * - Improve tags
  */
