@@ -73,7 +73,7 @@ const memoryMerge = (newMemory: Memory, nearMemory: WeaviateMemory) => {
             {
                 role: userRole,
                 content: `<current>
-Information: ${nearMemory.properties.content}
+Quote: ${nearMemory.properties.quote}
 Summary: ${nearMemory.properties.summary}
 Source: ${nearMemory.properties.source}
 Tags: ${nearMemory.properties.tags}
@@ -83,7 +83,8 @@ Term: ${nearMemory.properties.term}
             {
                 role: userRole,
                 content: `<new>
-Information: ${newMemory.content}
+Quote: ${newMemory.quote}
+Summary: ${newMemory.summary}
 Source: ${newMemory.source}
 </new>`,
             },

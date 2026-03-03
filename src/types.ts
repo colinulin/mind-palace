@@ -9,6 +9,8 @@ export type Memory = {
     source: string
     term: 'long' | 'short'
     isCore: boolean
+    userId: string | null
+    groupId: string | null
 }
 
 // Chat ingesting message types
@@ -23,4 +25,10 @@ export type IngestingMessage = {
 } | {
     context: never
     llm: 'gemini'
+}
+
+// Metadata for vector store searching
+export type VectorMetadata = {
+    userId?: string
+    groupId?: string
 }

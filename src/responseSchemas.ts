@@ -45,9 +45,12 @@ const extractedMemories = (tags: string[]) => z.object({
  * Response schema for merging similar memories
  */
 const mergedMemories = (tags: string[]) => z.object({
-    memories: z.array(memory(tags)).meta({
-        description: 'If information can be merged into a single memory, this array should only contain 1 memory. Otherwise, return 2 memories: the original memory without any changes and the new memory.',
-    }),
+    newMemory: memory(tags).meta({
+        description: 'If there is new information that provides context about something new, return a new memory here.',
+    }).optional(),
+    originalMemory: memory(tags).meta({
+        description: 'The original memory that has either been updated with the new information or left exactly the same as it was.',
+    }).required(),
 })
 
 export default {

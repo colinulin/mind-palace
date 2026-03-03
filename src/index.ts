@@ -4,9 +4,10 @@ import GPT from './vendors/gpt'
 import responseSchemas from './responseSchemas'
 import prompts from './prompts'
 import TokenCounter from './tokenCounter'
-import { IngestingMessage, Memory } from './types'
+import { IngestingMessage, Memory, VectorMetadata } from './types'
 import Weaviate from './vendors/weaviate'
 import { chunkArray, transformLLMMessagesToGenericBlocks } from './utils'
+import { PrimitiveKeys } from 'weaviate-client'
 
 // Memory store
 export class MindPalace {
@@ -108,7 +109,25 @@ export class MindPalace {
     }
 
     // Find relevant memories to include in a chat
-    async findRelevantMemories (context: ContentBlock[] | string) {
+    async findRelevantMemories (params: IngestingMessage & {
+        groupId?: string | number
+        userId?: string | number
+    }) {
+        let context: string | ContentBlock[]
+        if ('llm' in params) {
+            if (params.llm === 'claude') {
+                context = transformLLMMessagesToGenericBlocks({ messages: params.context, llm: params.llm })
+            }
+            else if (params.llm === 'gpt') {
+                context = transformLLMMessagesToGenericBlocks({ messages: params.context, llm: params.llm })
+            }
+            else {
+                throw new Error('Invalid context format.')
+            }
+        } else {
+            context = params.context
+        }
+
         const { messages, systemMessage, tools } = prompts.relevantMemorySearch(context)
         const responseSchema = responseSchemas.relevantMemoryIds()
         const generationConfig = {
@@ -137,12 +156,20 @@ export class MindPalace {
         // process tool use blocks (if present) to generate a list of relevant memory IDs
         let memoryIds: string[]
         if (toolUseBlocks.length) {
+            const metadata: VectorMetadata = {}
+            if (params.groupId) {
+                metadata.groupId = String(params.groupId)
+            }
+            if (params.userId) {
+                metadata.userId = String(params.userId)
+            }
             const toolUseResponse = await this.LLM.processToolUsage({
                 toolUseBlocks,
                 MindPalace: this,
                 continueGenerationAfterProcessing: true,
                 retryLimit: 3,
                 generationConfig,
+                metadata,
             })
             this.tokenUsage.trackInference({
                 input: toolUseResponse.tokenUsage.input,
@@ -169,13 +196,29 @@ export class MindPalace {
     // Find and merge similar memories in vector store
     async findAndMergeNewMemories (
         newMemories: Memory[],
+        metadata?: VectorMetadata,
     ) {
         // iterate over all new memories searching for highly similar ones already in the vector db
+        const filters: { key: PrimitiveKeys<Memory>; value: string | boolean }[] = []
+        if (metadata?.groupId) {
+            filters.push({
+                key: 'groupId',
+                value: metadata.groupId,
+            })
+        }
+        if (metadata?.userId) {
+            filters.push({
+                key: 'userId',
+                value: metadata.userId,
+            })
+        }
         const nearMemoryGroups = await Promise.all(newMemories.map(async m => {
             const nearMemory = (await this.Weaviate.searchMemories({
                 queryString: m.quote,
                 limit: 1,
                 mode: 'nearText',
+                filters,
+                includeNullWithFilter: true,
             })).objects[0]
 
             if ((nearMemory.metadata?.score || 0) < 0.8) {
@@ -216,7 +259,23 @@ export class MindPalace {
                 // log stale memory ID in vector db to delete
                 staleMemoryIds.push(memoryGroup.nearMemory.uuid)
 
-                return structuredResponse?.memories
+                if (!structuredResponse) {
+                    return
+                }
+
+                // add userId and groupId onto new/updated memories preserving original values
+                return [
+                    {
+                        ...structuredResponse.originalMemory,
+                        userId: memoryGroup.nearMemory.properties.userId || null,
+                        groupId: memoryGroup.nearMemory.properties.groupId || null,
+                    },
+                    ...(structuredResponse?.newMemory ? [{
+                        ...structuredResponse.newMemory,
+                        userId: metadata?.userId || null,
+                        groupId: metadata?.groupId || null,
+                    }] : []),
+                ]
             }))
             updatedMemories = [
                 ...updatedMemories,
@@ -231,15 +290,30 @@ export class MindPalace {
     }
     
     // Ingest a converstion and store it as memories
+    // If groupId/userId is passed, new memories will include these values and 
+    // similar memory search will include filters for these values
     async processConversation (params: IngestingMessage & {
-        metadata: Record<string, unknown>
+        groupId?: string | number
+        userId?: string | number
     }) {
-        const { metadata } = params
+        const metadata: VectorMetadata = {}
+        if (params.groupId) {
+            metadata.groupId = String(params.groupId)
+        }
+        if (params.userId) {
+            metadata.userId = String(params.userId)
+        }
         const newMemories = await this.extractMemories(params)
-        const { updatedMemories, staleMemoryIds } = await this.findAndMergeNewMemories(newMemories)
+        const { updatedMemories, staleMemoryIds } = await this.findAndMergeNewMemories(
+            newMemories.map(m => ({ ...m, userId: metadata.userId || null, groupId: metadata.groupId || null })),
+            metadata,
+        )
         await Promise.all([
             this.Weaviate.deleteStaleMemories(staleMemoryIds),
-            this.Weaviate.insertMemoriesIntoVectorStore(updatedMemories),
+            this.Weaviate.insertMemoriesIntoVectorStore(
+                updatedMemories, 
+                metadata,
+            ),
         ])
     }
 }
@@ -258,6 +332,5 @@ export class MindPalace {
  * Future cleanup:
  * - Abstract longer methods from MindPalace
  * - Improve isCore prompt
- * - Figure out how to keep track of IDs of memories during merge so we can update and not delete
  * - Improve tags
  */

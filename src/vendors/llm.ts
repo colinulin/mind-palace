@@ -8,6 +8,8 @@ import {
     userRole,
 } from './types'
 import { MindPalace } from '../'
+import { PrimitiveKeys } from 'weaviate-client'
+import { Memory } from '../types'
 
 /**
  * Helper class interface definition for LLM implementations
@@ -44,6 +46,7 @@ export class LLM {
     processToolUsage (params: { 
         toolUseBlocks: ToolUseBlock[]
         MindPalace: MindPalace
+        metadata?: { groupId?: string; userId?: string }
         continueGenerationAfterProcessing?: false
         tokenUsage?: {
             input: number
@@ -63,6 +66,7 @@ export class LLM {
     processToolUsage <T extends Record<string, unknown>, U extends ZodType<T>>(params: { 
         toolUseBlocks: ToolUseBlock[]
         MindPalace: MindPalace
+        metadata?: { groupId?: string; userId?: string }
         continueGenerationAfterProcessing: true
         generationConfig: GenerateInferenceParams<U>
         retries?: number
@@ -77,6 +81,7 @@ export class LLM {
     async processToolUsage (params:  { 
         toolUseBlocks: ToolUseBlock[]
         MindPalace: MindPalace
+        metadata?: { groupId?: string; userId?: string }
         continueGenerationAfterProcessing?: boolean
         generationConfig?: GenerateInferenceParams<ZodType<Record<string, unknown>>>
         retries?: number
@@ -92,11 +97,27 @@ export class LLM {
             MindPalace,
             continueGenerationAfterProcessing,
             tokenUsage,
+            metadata,
         } = params
 
         const updatedTokenUsage = tokenUsage || {
             input: 0,
             output: 0,
+        }
+
+        // setup metadata filters
+        const filters: { key: PrimitiveKeys<Memory>; value: string | boolean }[] = []
+        if (metadata?.groupId) {
+            filters.push({
+                key: 'groupId',
+                value: metadata.groupId,
+            })
+        }
+        if (metadata?.userId) {
+            filters.push({
+                key: 'userId',
+                value: metadata.userId,
+            })
         }
 
         // process all tool use blocks
@@ -107,6 +128,8 @@ export class LLM {
                     queryString: toolInput.query,
                     mode: 'hybrid',
                     limit: 10,
+                    filters,
+                    includeNullWithFilter: true,
                 })
                 const memoryResults = dataObjects.objects.map(m => ({
                     summary: m.properties.summary,

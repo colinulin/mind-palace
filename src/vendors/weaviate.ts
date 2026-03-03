@@ -6,6 +6,7 @@ import weaviate, {
     dataType,
     FetchObjectsOptions,
     Collection,
+    Filters,
 } from 'weaviate-client'
 import { Memory } from '../types'
 import GPT from './gpt'
@@ -53,6 +54,14 @@ export default class Weaviate {
         {
             name: 'isCore',
             dataType: dataType.BOOLEAN,
+        },
+        {
+            name: 'userId',
+            dataType: dataType.TEXT,
+        },
+        {
+            name: 'groupId',
+            dataType: dataType.TEXT,
         },
     ]
 
@@ -119,7 +128,10 @@ export default class Weaviate {
     /**
      * Insert memories into collection
      */
-    async insertMemoriesIntoVectorStore (memories: Memory[]) {
+    async insertMemoriesIntoVectorStore (
+        memories: Memory[],
+        metadata?: { groupId?: string; userId?: string },
+    ) {
         if (!this.memoryCollection) {
             throw new Error('You must initialize the Weaviate connection first.')
         }
@@ -133,6 +145,8 @@ export default class Weaviate {
                 source: m.source,
                 term: m.term,
                 isCore: m.isCore,
+                userId: metadata?.userId || null,
+                groupId: metadata?.groupId || null,
             },
         }))
 
@@ -157,16 +171,17 @@ export default class Weaviate {
      */
     async searchMemories (params: {
         queryString: string
-        filter?: { key: PrimitiveKeys<Memory>; value: string | boolean }
+        filters?: { key: PrimitiveKeys<Memory>; value: string | boolean }[]
         limit: number
         mode: 'hybrid' | 'bm25' | 'nearText'
         alpha?: number
+        includeNullWithFilter?: boolean
     }) {
         if (!this.memoryCollection) {
             throw new Error('You must initialize the Weaviate connection first.')
         }
 
-        const { queryString, limit, mode, filter, alpha: customAlpha } = params
+        const { includeNullWithFilter, queryString, limit, mode, filters, alpha: customAlpha } = params
 
         // configure return options for weaviate request
         const returnOpts: SearchOptions<Memory, undefined> = {
@@ -176,8 +191,17 @@ export default class Weaviate {
         }
 
         // apply property filter if passed
-        if (filter) {
-            returnOpts.filters = this.memoryCollection.filter.byProperty(filter.key).equal(filter.value)
+        if (filters?.length) {
+            returnOpts.filters = Filters.and(
+                ...filters.map(filter =>
+                    includeNullWithFilter
+                        ? Filters.or(
+                            this.memoryCollection!.filter.byProperty(filter.key).equal(filter.value),
+                            this.memoryCollection!.filter.byProperty(filter.key).isNull(true),
+                        )
+                        : this.memoryCollection!.filter.byProperty(filter.key).equal(filter.value),
+                ),
+            )
         }
 
         // calculate hybrid search alpha based on search mode
