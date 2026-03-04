@@ -3,6 +3,7 @@ import { ContentBlock, GenerateInferenceParams, GenericMessage, Tool } from './t
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod'
 import { ZodType } from 'zod'
 import { ILLM, LLM } from './llm'
+import logger from '../logger'
 
 export default class Claude extends LLM implements ILLM {
     private claudeClient: Anthropic
@@ -135,7 +136,12 @@ export default class Claude extends LLM implements ILLM {
             }
         }
 
+        logger.info({ label: 'Claude', metadata: inferenceParams })
+
         const response = await this.claudeClient.beta.messages.create(inferenceParams)
+
+        logger.info({ label: 'Claude', message: 'Reference generation complete' })
+        logger.debug({ label: 'Claude', metadata: response })
 
         // convert response back to generic content blocks
         const responseContentBlocks = Claude.createGenericContentBlocks(response)

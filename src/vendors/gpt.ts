@@ -8,6 +8,7 @@ import {
 import { zodResponseFormat } from 'openai/helpers/zod.js'
 import { ZodType } from 'zod'
 import { ILLM, LLM } from './llm'
+import logger from '../logger'
 
 /**
  * Class for interacting with the OpenAI API including chat completion and embedding generation
@@ -46,6 +47,9 @@ export default class GPT extends LLM implements ILLM {
             model: this.embeddingModel,
             encoding_format: 'float',
         })
+
+        logger.debug({ label: 'GPT', metadata: embeddingResponse })
+        logger.info({ label: 'GPT', message: 'Embedding generation complete' })
 
         return { 
             embeddings: embeddingResponse.data,
@@ -199,10 +203,16 @@ export default class GPT extends LLM implements ILLM {
                         : 'auto'
         }
 
+        logger.info({ label: 'GPT', metadata: responseCreateConfig })
+
         const response = await this.gptClient.responses.create(responseCreateConfig)
+
+        logger.info({ label: 'GPT', message: 'Reference generation complete' })
+        logger.debug({ label: 'GPT', metadata: response })
 
         // convert response back to generic content blocks
         const responseContentBlocks = GPT.createGenericContentBlocks(response)
+
 
         // if last content block is text, then it's a structured response so 
         // convert JSON stringified version of structured output to JS object

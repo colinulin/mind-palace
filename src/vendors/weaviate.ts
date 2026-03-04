@@ -10,6 +10,7 @@ import weaviate, {
 } from 'weaviate-client'
 import { Memory } from '../types'
 import GPT from './gpt'
+import logger from '../logger'
 
 export default class Weaviate {
     // Weaviate connection settings
@@ -79,6 +80,12 @@ export default class Weaviate {
 
         this.openaiApiKey = openaiApiKey
         this.gptClient = new GPT({ apiKey: openaiApiKey })
+
+        if (!openaiApiKey) {
+            logger.warn({ label: 'Weaviate', message: 'No OpenAI API key found.' })
+        }
+
+        logger.info({ label: 'Weaviate', message: 'Initialized client.' })
     }
 
     // Create single connection to Weaviate cluster and store collection connection
@@ -102,6 +109,7 @@ export default class Weaviate {
         // Connect to collection
         const collectionExists = await this.weaviateClient.collections.exists(this.collectionName)
         if (collectionExists) {
+            logger.info({ label: 'Weaviate', message: `Collection (${this.collectionName}) found.` })
             return this.weaviateClient.collections.get<Memory>(this.collectionName)
         }
 
@@ -116,6 +124,8 @@ export default class Weaviate {
             }),
         })
 
+        logger.info({ label: 'Weaviate', message: `Collection (${this.collectionName}) created.` })
+
         this.memoryCollection = memoryCollection
     }
 
@@ -123,6 +133,7 @@ export default class Weaviate {
     async closeWeaviateClients () {
         this.memoryCollection = undefined
         await this.weaviateClient?.close()
+        logger.info({ label: 'Weaviate', message: 'Connection successfully closed.' })
     }
 
     /**
@@ -133,7 +144,11 @@ export default class Weaviate {
         metadata?: { groupId?: string; userId?: string },
     ) {
         if (!this.memoryCollection) {
-            throw new Error('You must initialize the Weaviate connection first.')
+            logger.error({ 
+                label: 'Weaviate', 
+                message: 'Unable to insert memories. You must initialize Weaviate connection first.', 
+            })
+            return
         }
 
         // convert memories into Weaviate data objects for storage
@@ -151,7 +166,12 @@ export default class Weaviate {
         }))
 
         // insert memories into Weaviate collection
-        return this.memoryCollection.data.insertMany(dataObjects)
+        const insertResponse = await this.memoryCollection.data.insertMany(dataObjects)
+
+        logger.debug({ label: 'Weaviate', metadata: insertResponse })
+        logger.info({ label: 'Weaviate', message: `Inserted ${dataObjects.length} memories into vector store.` })
+
+        return insertResponse
     }
 
     /**
@@ -159,11 +179,16 @@ export default class Weaviate {
      */
     async deleteStaleMemories (dataObjectIds: string[]) {
         if (!this.memoryCollection) {
-            throw new Error('You must initialize the Weaviate connection first.')
+            logger.error({
+                label: 'Weaviate',
+                message: 'Unable to delete memories. You must initialize Weaviate connection first.', 
+            })
+            return
         }
         await this.memoryCollection.data.deleteMany(
             this.memoryCollection.filter.byId().containsAny(dataObjectIds),
         )
+        logger.info({ label: 'Weaviate', message: `Deleted ${dataObjectIds.length} memories from vector store.` })
     }
 
     /**
@@ -178,7 +203,11 @@ export default class Weaviate {
         includeNullWithFilter?: boolean
     }) {
         if (!this.memoryCollection) {
-            throw new Error('You must initialize the Weaviate connection first.')
+            logger.error({ 
+                label: 'Weaviate', 
+                message: 'Unable to search memories. You must initialize Weaviate connection first.',
+            })
+            return
         }
 
         const { includeNullWithFilter, queryString, limit, mode, filters, alpha: customAlpha } = params
@@ -212,13 +241,19 @@ export default class Weaviate {
                 ? 1
                 : (customAlpha || 0.5)
 
-        return await this.memoryCollection.query.hybrid(
+        logger.info({ label: 'Weaviate', message: `Searching for "${queryString}".` })
+        const searchResults = await this.memoryCollection.query.hybrid(
             queryString,
             {
                 ...returnOpts,
                 alpha,
             },
         )
+
+        logger.debug({ label: 'Weaviate', metadata: searchResults })
+        logger.info({ label: 'Weaviate', message: `Search returned ${searchResults.objects.length} results.` })
+
+        return searchResults
     }
 
     /**
@@ -226,9 +261,14 @@ export default class Weaviate {
      */
     async fetchMemoriesById (memoryIds: string[]) {
         if (!this.memoryCollection) {
-            throw new Error('You must initialize the Weaviate connection first.')
+            logger.error({ 
+                label: 'Weaviate', 
+                message: 'Unable to fetch memories by ID. You must initialize Weaviate connection first.', 
+            })
+            return []
         }
         
+        logger.info({ label: 'Weaviate', message: 'Fetching memories by ID.' })
         const results = await this.memoryCollection.query.fetchObjects(
             {
                 filters: this.memoryCollection.filter.byId().containsAny(memoryIds),
@@ -236,6 +276,8 @@ export default class Weaviate {
                 returnProperties: this.returnProperties,
             },
         )
+        logger.debug({ label: 'Weaviate', metadata: results })
+        logger.info({ label: 'Weaviate', message: `Fetched ${results.objects.length} memories.` })
 
         return results.objects
     }
@@ -248,9 +290,14 @@ export default class Weaviate {
         limit?: number 
     }) {
         if (!this.memoryCollection) {
-            throw new Error('You must initialize the Weaviate connection first.')
+            logger.error({ 
+                label: 'Weaviate', 
+                message: 'Unable to fetch memories. You must initialize Weaviate connection first.', 
+            })
+            return []
         }
 
+        logger.info({ label: 'Weaviate', message: 'Fetching memories.' })
         const query: FetchObjectsOptions<Memory, undefined> = {
             limit: params?.limit || 100,
             returnMetadata: this.returnMetadata,
@@ -261,6 +308,9 @@ export default class Weaviate {
         }
 
         const results = await this.memoryCollection.query.fetchObjects(query)
+        logger.debug({ label: 'Weaviate', metadata: results })
+        logger.info({ label: 'Weaviate', message: `Fetched ${results.objects.length} memories.` })
+        
         return results.objects
     }
 }

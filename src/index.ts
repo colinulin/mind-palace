@@ -8,10 +8,10 @@ import { IngestingMessage, Memory, VectorMetadata } from './types'
 import Weaviate from './vendors/weaviate'
 import { chunkArray, transformLLMMessagesToGenericBlocks } from './utils'
 import { PrimitiveKeys } from 'weaviate-client'
+import logger from './logger'
 
 // Memory store
 export class MindPalace {
-    logLevel: 'off' | 'error' | 'debug'
     tags = [ 'database schema', 'response formatting', 'code style', 'institutional knowledge' ]
     tokenUsage = new TokenCounter()
     Weaviate: Weaviate
@@ -20,7 +20,6 @@ export class MindPalace {
     GPT: GPT
 
     constructor (config: {
-        logLevel?: 'off' | 'error' | 'debug'
         llm: 'Claude' | 'GPT' | 'Gemini'
         claudeConfig?: {
             apiKey: string
@@ -38,9 +37,7 @@ export class MindPalace {
             collectionName?: string
         }
     }) {
-        const { logLevel, llm, claudeConfig, gptConfig, weaviateConfig } = config
-
-        this.logLevel = logLevel ?? 'off'
+        const { llm, claudeConfig, gptConfig, weaviateConfig } = config
         
         this.Weaviate = new Weaviate({
             ...weaviateConfig,
@@ -61,7 +58,7 @@ export class MindPalace {
         }
 
         if (!('LLM' in this)) {
-            throw new Error('You must configure at least one LLM ')
+            logger.error({ label: 'MindPalace', message: 'No LLM configuration provided.' })
         }
     }
 
@@ -76,11 +73,14 @@ export class MindPalace {
                 context = transformLLMMessagesToGenericBlocks({ messages: params.context, llm: params.llm })
             }
             else {
-                throw new Error('Invalid context format.')
+                logger.error({ label: 'MindPalace', message: 'Invalid message format. Unable to process data.' })
+                return
             }
         } else {
             context = params.context
         }
+
+        logger.info({ label: 'MindPalace', message: 'Beginning memory extraction.' })
 
         const responseSchema = responseSchemas.extractedMemories(this.tags)
         const { messages, systemMessage } = prompts.memoryExtraction(context)
@@ -90,6 +90,9 @@ export class MindPalace {
             systemMessage,
         })
         this.tokenUsage.trackInference(tokenUsage, model)
+
+        logger.debug({ label: 'MindPalace', metadata: structuredResponse })
+        logger.info({ label: 'MindPalace', message: 'Memory extraction complete.' })
 
         return structuredResponse?.memories || []
     }
@@ -122,11 +125,14 @@ export class MindPalace {
                 context = transformLLMMessagesToGenericBlocks({ messages: params.context, llm: params.llm })
             }
             else {
-                throw new Error('Invalid context format.')
+                logger.error({ label: 'MindPalace', message: 'Invalid message format. Unable to process data.' })
+                return
             }
         } else {
             context = params.context
         }
+
+        logger.info({ label: 'MindPalace', message: 'Searching for relevant memories.' })
 
         const { messages, systemMessage, tools } = prompts.relevantMemorySearch(context)
         const responseSchema = responseSchemas.relevantMemoryIds()
@@ -176,12 +182,16 @@ export class MindPalace {
                 output: toolUseResponse.tokenUsage.output,
             }, toolUseResponse.model)
             memoryIds = toolUseResponse.structuredResponse?.memoryIds || []
+
+            logger.info({ label: 'MindPalace', message: 'Completed tool use block processing.' })
         } else {
             memoryIds = structuredResponse?.memoryIds || []
         }
 
         // get memories from vector store by ID
         const memories = await this.Weaviate.fetchMemoriesById(memoryIds)
+        logger.debug({ label: 'MindPalace', metadata: memories })
+        logger.info({ label: 'MindPalace', message: 'Fetched relevant memories.' })
 
         return memories
     }
@@ -219,9 +229,9 @@ export class MindPalace {
                 mode: 'nearText',
                 filters,
                 includeNullWithFilter: true,
-            })).objects[0]
+            }))?.objects[0]
 
-            if ((nearMemory.metadata?.score || 0) < 0.8) {
+            if ((nearMemory?.metadata?.score || 0) < 0.8) {
                 return {
                     newMemory: m,
                 }
@@ -303,7 +313,7 @@ export class MindPalace {
         if (params.userId) {
             metadata.userId = String(params.userId)
         }
-        const newMemories = await this.extractMemories(params)
+        const newMemories = await this.extractMemories(params) || []
         const { updatedMemories, staleMemoryIds } = await this.findAndMergeNewMemories(
             newMemories.map(m => ({ ...m, userId: metadata.userId || null, groupId: metadata.groupId || null })),
             metadata,
@@ -320,14 +330,12 @@ export class MindPalace {
 
 /**
  * TODO:
- * - Integrate metadata (i.e., userId)
- * - Add logging
  * - Add automated tests
  * - Determine max lengths for memories
  * - Add Gemini
  * - Add Readme.md
  * - Add Contribution.md
- * - Make it possible to write your own LLM and Vector Store classes
+ * - Add customization params
  * 
  * Future cleanup:
  * - Abstract longer methods from MindPalace

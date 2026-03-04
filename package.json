@@ -2,13 +2,13 @@
   "name": "mind-palace",
   "version": "1.0.0",
   "description": "A scalable, flexible memory store for LLMs",
-  "homepage": "https://github.com/colin3440/mind-palace#readme",
+  "homepage": "https://github.com/colinulin/mind-palace#readme",
   "bugs": {
-    "url": "https://github.com/colin3440/mind-palace/issues"
+    "url": "https://github.com/colinulin/mind-palace/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/colin3440/mind-palace.git"
+    "url": "git+https://github.com/colinulin/mind-palace.git"
   },
   "license": "MIT",
   "author": "Colin Ulin",
@@ -17,19 +17,13 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc -p .",
-    "test": "jest",
-    "test:unit": "jest --testPathPattern=test/unit",
-    "test:integration": "jest --testPathPattern=test/integration",
     "lint": "eslint '**/*.{js,ts}'"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@stylistic/eslint-plugin": "5.9.0",
-    "@swc/core": "1.15.13",
-    "@swc/jest": "0.2.39",
     "@types/node": "25.3.2",
     "eslint": "10.0.2",
-    "jest": "30.2.0",
     "typescript": "5.9.3",
     "typescript-eslint": "8.56.1"
   },
@@ -39,7 +33,6 @@
   "dependencies": {
     "@anthropic-ai/sdk": "0.78.0",
     "openai": "6.25.0",
-    "voyageai": "^0.1.0",
     "weaviate-client": "3.11.0",
     "zod": "4.3.6"
   }

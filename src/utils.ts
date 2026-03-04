@@ -13,7 +13,7 @@ export const chunkArray = <T>(arr: T[], size: number): T[][] =>
     )
 
 /**
- * Transform LLM messages from GPT, Claude, or Gemini and convert to generic content block
+ * Transform LLM messages from GPT, Claude, or Gemini and convert to standardized generic content block
  */
 export const transformLLMMessagesToGenericBlocks = (params: {
     messages: Anthropic.Beta.Messages.BetaMessage | Anthropic.Messages.Message

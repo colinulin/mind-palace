@@ -2,6 +2,11 @@ import Anthropic from '@anthropic-ai/sdk'
 import OpenAI from 'openai'
 import { ContentBlock } from './vendors/types'
 
+// Logger types
+export type LogLevel = 'off' | 'error' | 'info' | 'debug'
+export type LogType = 'info' | 'error' | 'warn' | 'debug'
+
+// Memory types
 export type Memory = {
     quote: string
     summary: string

@@ -10,6 +10,7 @@ import {
 import { MindPalace } from '../'
 import { PrimitiveKeys } from 'weaviate-client'
 import { Memory } from '../types'
+import logger from '../logger'
 
 /**
  * Helper class interface definition for LLM implementations
@@ -92,6 +93,9 @@ export class LLM {
             output: number
         }
     }) {
+        logger.info({ label: 'LLM', message: 'Processing tool use block.' })
+        logger.debug({ label: 'LLM', metadata: params })
+
         const {
             toolUseBlocks,
             MindPalace,
@@ -131,7 +135,7 @@ export class LLM {
                     filters,
                     includeNullWithFilter: true,
                 })
-                const memoryResults = dataObjects.objects.map(m => ({
+                const memoryResults = dataObjects?.objects.map(m => ({
                     summary: m.properties.summary,
                     source: m.properties.source,
                 }))
