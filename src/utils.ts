@@ -17,20 +17,20 @@ export const chunkArray = <T>(arr: T[], size: number): T[][] =>
  */
 export const transformLLMMessagesToGenericBlocks = (params: {
     messages: Anthropic.Beta.Messages.BetaMessage | Anthropic.Messages.Message
-    llm: 'claude'
+    llm: 'Claude'
 } | {
     messages: OpenAI.Responses.Response
-    llm: 'gpt'
+    llm: 'GPT'
 }): ContentBlock[] => {
     const { messages, llm } = params
 
-    if (llm === 'gpt') {
+    if (llm === 'GPT') {
         return GPT.createGenericContentBlocks(messages)
     }
-    if (llm === 'claude') {
+    if (llm === 'Claude') {
         return Claude.createGenericContentBlocks(messages)
     }
-    if (llm === 'gemini') {
+    if (llm === 'Gemini') {
         // TODO: Implement
     }
 

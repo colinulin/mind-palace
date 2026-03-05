@@ -17,7 +17,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc -p .",
-    "lint": "eslint '**/*.{js,ts}'",
+    "lint": "eslint **/*.{js,ts}",
     "test": "npm run test:unit && npm run test:integration",
     "test:integration": "vitest run --dir test/integration",
     "test:unit": "vitest run --dir test/unit"

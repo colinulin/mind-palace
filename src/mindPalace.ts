@@ -31,10 +31,10 @@ export default class MPCore {
     protected async extractMemories (params: IngestingMessage) {
         let context: string | ContentBlock[]
         if ('llm' in params) {
-            if (params.llm === 'claude') {
+            if (params.llm === 'Claude') {
                 context = transformLLMMessagesToGenericBlocks({ messages: params.context, llm: params.llm })
             }
-            else if (params.llm === 'gpt') {
+            else if (params.llm === 'GPT') {
                 context = transformLLMMessagesToGenericBlocks({ messages: params.context, llm: params.llm })
             }
             else {
@@ -69,10 +69,10 @@ export default class MPCore {
     }) {
         let context: string | ContentBlock[]
         if ('llm' in params) {
-            if (params.llm === 'claude') {
+            if (params.llm === 'Claude') {
                 context = transformLLMMessagesToGenericBlocks({ messages: params.context, llm: params.llm })
             }
-            else if (params.llm === 'gpt') {
+            else if (params.llm === 'GPT') {
                 context = transformLLMMessagesToGenericBlocks({ messages: params.context, llm: params.llm })
             }
             else {

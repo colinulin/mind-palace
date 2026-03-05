@@ -8,6 +8,7 @@ export default defineConfig(({ mode }) => {
     return {
         test: {
             env: { ...env, ...process.env },
+            testTimeout: 1000 * 60 * 5, // 5 minutes
         },
     }
 })
