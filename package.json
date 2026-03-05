@@ -1,6 +1,6 @@
 {
   "name": "mind-palace",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "A scalable, flexible memory store for LLMs",
   "homepage": "https://github.com/colinulin/mind-palace#readme",
   "bugs": {
@@ -17,7 +17,10 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc -p .",
-    "lint": "eslint '**/*.{js,ts}'"
+    "lint": "eslint '**/*.{js,ts}'",
+    "test": "npm run test:unit && npm run test:integration",
+    "test:integration": "vitest run --dir test/integration",
+    "test:unit": "vitest run --dir test/unit"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
@@ -25,7 +28,8 @@
     "@types/node": "25.3.2",
     "eslint": "10.0.2",
     "typescript": "5.9.3",
-    "typescript-eslint": "8.56.1"
+    "typescript-eslint": "8.56.1",
+    "vitest": "4.0.18"
   },
   "files": [
     "/dist"

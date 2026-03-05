@@ -1,26 +1,18 @@
-import { ContentBlock, ToolUseBlock } from './vendors/types'
 import Claude from './vendors/claude'
 import GPT from './vendors/gpt'
-import responseSchemas from './responseSchemas'
-import prompts from './prompts'
-import TokenCounter from './tokenCounter'
-import { IngestingMessage, Memory, VectorMetadata } from './types'
+import { IngestingMessage, LLMName, VectorMetadata, VectorStoreName } from './types'
 import Weaviate from './vendors/weaviate'
-import { chunkArray, transformLLMMessagesToGenericBlocks } from './utils'
-import { PrimitiveKeys } from 'weaviate-client'
 import logger from './logger'
+import Pinecone from './vendors/pinecone'
+import MPCore from './mindPalace'
 
 // Memory store
-export class MindPalace {
+export default class MindPalace extends MPCore {
     tags = [ 'database schema', 'response formatting', 'code style', 'institutional knowledge' ]
-    tokenUsage = new TokenCounter()
-    Weaviate: Weaviate
-    LLM!: Claude | GPT
-    Claude: Claude | undefined
-    GPT: GPT
 
     constructor (config: {
-        llm: 'Claude' | 'GPT' | 'Gemini'
+        llm?: LLMName
+        vectorStore?: VectorStoreName
         claudeConfig?: {
             apiKey: string
             embeddingModel?: string
@@ -31,18 +23,47 @@ export class MindPalace {
             embeddingModel?: string
             generativeModel?: string
         }
-        weaviateConfig: {
+        weaviateConfig?: {
             apiKey: string
             clusterUrl: string
             collectionName?: string
         }
+        pineconeConfig?: {
+            apiKey: string
+            indexName?: string
+        }
+        tags?: string[]
     }) {
-        const { llm, claudeConfig, gptConfig, weaviateConfig } = config
+        super()
+
+        const {
+            llm,
+            vectorStore,
+            pineconeConfig,
+            claudeConfig,
+            gptConfig,
+            weaviateConfig,
+            tags,
+        } = config
+
+        if (tags) {
+            this.tags = tags
+        }
         
-        this.Weaviate = new Weaviate({
-            ...weaviateConfig,
-            openaiApiKey: gptConfig?.apiKey,
-        })
+        if ((!vectorStore || vectorStore === 'Weaviate') && weaviateConfig) {
+            this.Weaviate = new Weaviate({
+                ...weaviateConfig,
+                openaiApiKey: gptConfig?.apiKey,
+            })
+            this.VectorStore = this.Weaviate
+        }
+        if (vectorStore === 'Pinecone' && pineconeConfig) {
+            this.Pinecone = new Pinecone(pineconeConfig)
+        }
+
+        if (!('VectorStore' in this)) {
+            logger.error({ label: 'MindPalace', message: 'No Vector Store configuration provided.' })
+        }
         
         this.GPT = new GPT(gptConfig)
 
@@ -53,7 +74,7 @@ export class MindPalace {
         if (llm === 'Claude' && this.Claude) {
             this.LLM = this.Claude
         }
-        if (llm === 'GPT' && this.GPT) {
+        if ((!llm || llm === 'GPT') && this.GPT) {
             this.LLM = this.GPT
         }
 
@@ -62,247 +83,32 @@ export class MindPalace {
         }
     }
 
-    // Extract memories from context
-    async extractMemories (params: IngestingMessage) {
-        let context: string | ContentBlock[]
-        if ('llm' in params) {
-            if (params.llm === 'claude') {
-                context = transformLLMMessagesToGenericBlocks({ messages: params.context, llm: params.llm })
-            }
-            else if (params.llm === 'gpt') {
-                context = transformLLMMessagesToGenericBlocks({ messages: params.context, llm: params.llm })
-            }
-            else {
-                logger.error({ label: 'MindPalace', message: 'Invalid message format. Unable to process data.' })
-                return
-            }
-        } else {
-            context = params.context
-        }
-
-        logger.info({ label: 'MindPalace', message: 'Beginning memory extraction.' })
-
-        const responseSchema = responseSchemas.extractedMemories(this.tags)
-        const { messages, systemMessage } = prompts.memoryExtraction(context)
-        const { structuredResponse, tokenUsage, model } = await this.LLM.generateInference({
-            responseSchema,
-            messages,
-            systemMessage,
-        })
-        this.tokenUsage.trackInference(tokenUsage, model)
-
-        logger.debug({ label: 'MindPalace', metadata: structuredResponse })
-        logger.info({ label: 'MindPalace', message: 'Memory extraction complete.' })
-
-        return structuredResponse?.memories || []
-    }
-
-    // Search memory based on a search string and return top N relevant memories
-    async searchMemories (params: { queryString: string; limit?: number; alpha?: number }) {
-        const { queryString, limit, alpha } = params
-
-        const vectorStoreResults = await this.Weaviate.searchMemories({
-            queryString,
-            limit: limit ?? 5,
-            mode: 'hybrid',
-            alpha: alpha || 0.5,
-        })
-        
-        return vectorStoreResults
-    }
-
-    // Find relevant memories to include in a chat
-    async findRelevantMemories (params: IngestingMessage & {
+    // Recall everything needed to provide context
+    async recall (params: IngestingMessage & {
         groupId?: string | number
         userId?: string | number
     }) {
-        let context: string | ContentBlock[]
-        if ('llm' in params) {
-            if (params.llm === 'claude') {
-                context = transformLLMMessagesToGenericBlocks({ messages: params.context, llm: params.llm })
-            }
-            else if (params.llm === 'gpt') {
-                context = transformLLMMessagesToGenericBlocks({ messages: params.context, llm: params.llm })
-            }
-            else {
-                logger.error({ label: 'MindPalace', message: 'Invalid message format. Unable to process data.' })
-                return
-            }
-        } else {
-            context = params.context
+        const relevantMemories = await this.findRelevantMemories(params)
+        if (!relevantMemories) {
+            logger.warn({ label: 'MindPalace', message: 'No relevant memories found.' })
+            return
         }
 
-        logger.info({ label: 'MindPalace', message: 'Searching for relevant memories.' })
-
-        const { messages, systemMessage, tools } = prompts.relevantMemorySearch(context)
-        const responseSchema = responseSchemas.relevantMemoryIds()
-        const generationConfig = {
-            responseSchema,
-            messages,
-            systemMessage,
-            tools,
-        }
-        const { response, structuredResponse, tokenUsage, model } = await this.LLM.generateInference(generationConfig)
-        this.tokenUsage.trackInference({
-            input: tokenUsage.input,
-            output: tokenUsage.output,
-        }, model)
-        
-        // grab all of the last content blocks that are tool_use type
-        const toolUseBlocks: ToolUseBlock[] = []
-        response.contentBlocks.reverse()
-        for (const block of response.contentBlocks) {
-            if (block.type !== 'tool_use') {
-                return
-            }
-
-            toolUseBlocks.push(block)
-        }
-
-        // process tool use blocks (if present) to generate a list of relevant memory IDs
-        let memoryIds: string[]
-        if (toolUseBlocks.length) {
-            const metadata: VectorMetadata = {}
-            if (params.groupId) {
-                metadata.groupId = String(params.groupId)
-            }
-            if (params.userId) {
-                metadata.userId = String(params.userId)
-            }
-            const toolUseResponse = await this.LLM.processToolUsage({
-                toolUseBlocks,
-                MindPalace: this,
-                continueGenerationAfterProcessing: true,
-                retryLimit: 3,
-                generationConfig,
-                metadata,
-            })
-            this.tokenUsage.trackInference({
-                input: toolUseResponse.tokenUsage.input,
-                output: toolUseResponse.tokenUsage.output,
-            }, toolUseResponse.model)
-            memoryIds = toolUseResponse.structuredResponse?.memoryIds || []
-
-            logger.info({ label: 'MindPalace', message: 'Completed tool use block processing.' })
-        } else {
-            memoryIds = structuredResponse?.memoryIds || []
-        }
-
-        // get memories from vector store by ID
-        const memories = await this.Weaviate.fetchMemoriesById(memoryIds)
-        logger.debug({ label: 'MindPalace', metadata: memories })
-        logger.info({ label: 'MindPalace', message: 'Fetched relevant memories.' })
-
-        return memories
-    }
-
-    // Fetch all core memories
-    async fetchCoreMemories () {
-        const coreMemories = await this.Weaviate.fetchMemories({ filter: { key: 'isCore', value: true } })
-
-        return coreMemories.map(cm => cm.properties.summary)
-    }
-
-    // Find and merge similar memories in vector store
-    async findAndMergeNewMemories (
-        newMemories: Memory[],
-        metadata?: VectorMetadata,
-    ) {
-        // iterate over all new memories searching for highly similar ones already in the vector db
-        const filters: { key: PrimitiveKeys<Memory>; value: string | boolean }[] = []
-        if (metadata?.groupId) {
-            filters.push({
-                key: 'groupId',
-                value: metadata.groupId,
-            })
-        }
-        if (metadata?.userId) {
-            filters.push({
-                key: 'userId',
-                value: metadata.userId,
-            })
-        }
-        const nearMemoryGroups = await Promise.all(newMemories.map(async m => {
-            const nearMemory = (await this.Weaviate.searchMemories({
-                queryString: m.quote,
-                limit: 1,
-                mode: 'nearText',
-                filters,
-                includeNullWithFilter: true,
-            }))?.objects[0]
-
-            if ((nearMemory?.metadata?.score || 0) < 0.8) {
-                return {
-                    newMemory: m,
-                }
-            }
-
-            return {
-                newMemory: m,
-                nearMemory,
-            }
-        }))
-
-        // process 10 at a time to prevent rate limiting
-        const chunkedGroups = chunkArray(nearMemoryGroups.filter(nmg => !!nmg), 10)
-        let updatedMemories: Memory[] = []
-        const staleMemoryIds: string[] = []
-        const responseSchema = responseSchemas.mergedMemories(this.tags)
-        for (const cg of chunkedGroups) {
-            const updatedGroup = await Promise.all(cg.map(async memoryGroup => {
-                if (!memoryGroup.nearMemory) {
-                    return [ memoryGroup.newMemory ]
-                }
-
-                // attempt to merge the memories and/or create a new
-                const { messages, systemMessage } = prompts.memoryMerge(
-                    memoryGroup.newMemory, 
-                    memoryGroup.nearMemory,
-                )
-                const { structuredResponse, tokenUsage, model } = await this.LLM.generateInference({
-                    responseSchema,
-                    messages,
-                    systemMessage,
-                })
-                this.tokenUsage.trackInference(tokenUsage, model)
-
-                // log stale memory ID in vector db to delete
-                staleMemoryIds.push(memoryGroup.nearMemory.uuid)
-
-                if (!structuredResponse) {
-                    return
-                }
-
-                // add userId and groupId onto new/updated memories preserving original values
-                return [
-                    {
-                        ...structuredResponse.originalMemory,
-                        userId: memoryGroup.nearMemory.properties.userId || null,
-                        groupId: memoryGroup.nearMemory.properties.groupId || null,
-                    },
-                    ...(structuredResponse?.newMemory ? [{
-                        ...structuredResponse.newMemory,
-                        userId: metadata?.userId || null,
-                        groupId: metadata?.groupId || null,
-                    }] : []),
-                ]
-            }))
-            updatedMemories = [
-                ...updatedMemories,
-                ...updatedGroup.flat().filter(ug => !!ug),
-            ]
-        }
+        const formattedMemories = relevantMemories
+            .map(m => `Information: ${m.summary}\nMemory: "${m.quote}"`)
+            .join('\n\n')
 
         return {
-            staleMemoryIds,
-            updatedMemories,
+            // eslint-disable-next-line max-len
+            message: `Below is a list of memories and information from previous conversations to help you better respond to the following request.\n<memories>${formattedMemories}</memories>`,
+            memories: relevantMemories,
         }
     }
     
     // Ingest a converstion and store it as memories
     // If groupId/userId is passed, new memories will include these values and 
     // similar memory search will include filters for these values
-    async processConversation (params: IngestingMessage & {
+    async remember (params: IngestingMessage & {
         groupId?: string | number
         userId?: string | number
     }) {
@@ -319,12 +125,14 @@ export class MindPalace {
             metadata,
         )
         await Promise.all([
-            this.Weaviate.deleteStaleMemories(staleMemoryIds),
-            this.Weaviate.insertMemoriesIntoVectorStore(
+            this.VectorStore.deleteStaleMemories(staleMemoryIds),
+            this.VectorStore.insertMemoriesIntoVectorStore(
                 updatedMemories, 
                 metadata,
             ),
         ])
+
+        return updatedMemories
     }
 }
 
@@ -333,12 +141,14 @@ export class MindPalace {
  * - Add automated tests
  * - Determine max lengths for memories
  * - Add Gemini
+ * - Add Pinecone
  * - Add Readme.md
  * - Add Contribution.md
  * - Add customization params
  * 
- * Future cleanup:
+ * Future stuff:
  * - Abstract longer methods from MindPalace
  * - Improve isCore prompt
  * - Improve tags
+ * - Add support for package-specific env vars
  */

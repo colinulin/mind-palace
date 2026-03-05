@@ -7,10 +7,9 @@ import {
     ToolUseBlock,
     userRole,
 } from './types'
-import { MindPalace } from '../'
-import { PrimitiveKeys } from 'weaviate-client'
 import { Memory } from '../types'
 import logger from '../logger'
+import MPCore from '../mindPalace'
 
 /**
  * Helper class interface definition for LLM implementations
@@ -46,7 +45,7 @@ export class LLM {
     // overload for not coninuing generation
     processToolUsage (params: { 
         toolUseBlocks: ToolUseBlock[]
-        MindPalace: MindPalace
+        MindPalace: MPCore
         metadata?: { groupId?: string; userId?: string }
         continueGenerationAfterProcessing?: false
         tokenUsage?: {
@@ -66,7 +65,7 @@ export class LLM {
     // overload for continuing generation
     processToolUsage <T extends Record<string, unknown>, U extends ZodType<T>>(params: { 
         toolUseBlocks: ToolUseBlock[]
-        MindPalace: MindPalace
+        MindPalace: MPCore
         metadata?: { groupId?: string; userId?: string }
         continueGenerationAfterProcessing: true
         generationConfig: GenerateInferenceParams<U>
@@ -81,7 +80,7 @@ export class LLM {
     // implementation
     async processToolUsage (params:  { 
         toolUseBlocks: ToolUseBlock[]
-        MindPalace: MindPalace
+        MindPalace: MPCore
         metadata?: { groupId?: string; userId?: string }
         continueGenerationAfterProcessing?: boolean
         generationConfig?: GenerateInferenceParams<ZodType<Record<string, unknown>>>
@@ -110,7 +109,7 @@ export class LLM {
         }
 
         // setup metadata filters
-        const filters: { key: PrimitiveKeys<Memory>; value: string | boolean }[] = []
+        const filters: { key: keyof Memory; value: string | boolean }[] = []
         if (metadata?.groupId) {
             filters.push({
                 key: 'groupId',
@@ -128,16 +127,16 @@ export class LLM {
         const toolUsePromises = toolUseBlocks.map(async block => {
             if (block.name === 'search_memories') {
                 const toolInput = block.input as { query: string }
-                const dataObjects = await MindPalace.Weaviate.searchMemories({
+                const dataObjects = await MindPalace.VectorStore.searchMemories({
                     queryString: toolInput.query,
                     mode: 'hybrid',
                     limit: 10,
                     filters,
                     includeNullWithFilter: true,
                 })
-                const memoryResults = dataObjects?.objects.map(m => ({
-                    summary: m.properties.summary,
-                    source: m.properties.source,
+                const memoryResults = dataObjects?.map(m => ({
+                    summary: m.memory.summary,
+                    source: m.memory.source,
                 }))
 
                 return {

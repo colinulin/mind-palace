@@ -37,6 +37,7 @@ export default [
             '@stylistic/indent': [ 'error', 4 ],
             'no-prototype-builtins': 'off',
             '@stylistic/member-delimiter-style': [ 'error', { multiline: { delimiter: 'none' } }],
+            'eol-last': [ 'error', 'always' ],
             '@typescript-eslint/naming-convention': [ 'error', {
                 selector: 'interface',
                 format: [ 'PascalCase' ],

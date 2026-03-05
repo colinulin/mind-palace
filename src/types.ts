@@ -23,13 +23,13 @@ export type IngestingMessage = {
     context: string | ContentBlock[]
 } | {
     context: Anthropic.Beta.Messages.BetaMessage | Anthropic.Messages.Message
-    llm: 'claude'
+    llm: 'Claude'
 } | {
     context: OpenAI.Responses.Response
-    llm: 'gpt'
+    llm: 'GPT'
 } | {
     context: never
-    llm: 'gemini'
+    llm: 'Gemini'
 }
 
 // Metadata for vector store searching
@@ -37,3 +37,9 @@ export type VectorMetadata = {
     userId?: string
     groupId?: string
 }
+
+// LLM
+export type LLMName = 'Claude' | 'GPT' | 'Gemini'
+
+// Vector Store
+export type VectorStoreName =  'Pinecone' | 'Weaviate'

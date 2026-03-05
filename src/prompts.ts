@@ -1,6 +1,6 @@
 /* eslint-disable max-len */
 import { Memory } from './types'
-import { ContentBlock, userRole, WeaviateMemory } from './vendors/types'
+import { ContentBlock, userRole } from './vendors/types'
 
 /**
  * Prompt to find memories relevant to a given context
@@ -66,18 +66,18 @@ Review the conversation and extract important information based on the following
 /**
  * Prompt to consider and do memory merge
  */
-const memoryMerge = (newMemory: Memory, nearMemory: WeaviateMemory) => {
+const memoryMerge = (newMemory: Memory, nearMemory: Memory) => {
     return {
         systemMessage: 'You have obtained new information and your job is to determine if that information is new or should be merged with current information.',
         messages: [
             {
                 role: userRole,
                 content: `<current>
-Quote: ${nearMemory.properties.quote}
-Summary: ${nearMemory.properties.summary}
-Source: ${nearMemory.properties.source}
-Tags: ${nearMemory.properties.tags}
-Term: ${nearMemory.properties.term}
+Quote: ${nearMemory.quote}
+Summary: ${nearMemory.summary}
+Source: ${nearMemory.source}
+Tags: ${nearMemory.tags}
+Term: ${nearMemory.term}
 </current>`,
             },
             {

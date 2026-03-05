@@ -11,8 +11,9 @@ import weaviate, {
 import { Memory } from '../types'
 import GPT from './gpt'
 import logger from '../logger'
+import { IVectorStore } from './vectorStore'
 
-export default class Weaviate {
+export default class Weaviate implements IVectorStore {
     // Weaviate connection settings
     private collectionName: string
     private clusterUrl: string
@@ -143,6 +144,7 @@ export default class Weaviate {
         memories: Memory[],
         metadata?: { groupId?: string; userId?: string },
     ) {
+        await this.initWeaviateClient()
         if (!this.memoryCollection) {
             logger.error({ 
                 label: 'Weaviate', 
@@ -170,14 +172,13 @@ export default class Weaviate {
 
         logger.debug({ label: 'Weaviate', metadata: insertResponse })
         logger.info({ label: 'Weaviate', message: `Inserted ${dataObjects.length} memories into vector store.` })
-
-        return insertResponse
     }
 
     /**
      * Delete stale memories by ID
      */
     async deleteStaleMemories (dataObjectIds: string[]) {
+        await this.initWeaviateClient()
         if (!this.memoryCollection) {
             logger.error({
                 label: 'Weaviate',
@@ -196,12 +197,13 @@ export default class Weaviate {
      */
     async searchMemories (params: {
         queryString: string
-        filters?: { key: PrimitiveKeys<Memory>; value: string | boolean }[]
+        filters?: { key: keyof Memory; value: string | boolean }[]
         limit: number
         mode: 'hybrid' | 'bm25' | 'nearText'
         alpha?: number
         includeNullWithFilter?: boolean
     }) {
+        await this.initWeaviateClient()
         if (!this.memoryCollection) {
             logger.error({ 
                 label: 'Weaviate', 
@@ -253,13 +255,20 @@ export default class Weaviate {
         logger.debug({ label: 'Weaviate', metadata: searchResults })
         logger.info({ label: 'Weaviate', message: `Search returned ${searchResults.objects.length} results.` })
 
-        return searchResults
+        const memories = searchResults.objects.map(r => ({
+            memory: r.properties,
+            score: r.metadata?.score || 0,
+            uuid: r.uuid,
+        }))
+
+        return memories
     }
 
     /**
      * Fetch memories by ID
      */
     async fetchMemoriesById (memoryIds: string[]) {
+        await this.initWeaviateClient()
         if (!this.memoryCollection) {
             logger.error({ 
                 label: 'Weaviate', 
@@ -279,7 +288,7 @@ export default class Weaviate {
         logger.debug({ label: 'Weaviate', metadata: results })
         logger.info({ label: 'Weaviate', message: `Fetched ${results.objects.length} memories.` })
 
-        return results.objects
+        return results.objects.map(r => r.properties)
     }
 
     /**
@@ -289,6 +298,7 @@ export default class Weaviate {
         filter?: { key: PrimitiveKeys<Memory>; value: string | boolean }
         limit?: number 
     }) {
+        await this.initWeaviateClient()
         if (!this.memoryCollection) {
             logger.error({ 
                 label: 'Weaviate', 
@@ -311,6 +321,6 @@ export default class Weaviate {
         logger.debug({ label: 'Weaviate', metadata: results })
         logger.info({ label: 'Weaviate', message: `Fetched ${results.objects.length} memories.` })
         
-        return results.objects
+        return results.objects.map(r => r.properties)
     }
 }
