@@ -70,6 +70,3 @@ export type GenerateInferenceReturn<T extends Record<string, unknown>, U extends
 export type GenerateInference<T extends Record<string, unknown>, U extends ZodType<T>> = (
     params: GenerateInferenceParams<U>
 ) => Promise<GenerateInferenceReturn<T, U>>
-
-// Memory format directly from Weaviate store
-export type WeaviateMemory = WeaviateObject<Memory, number[] | Vectors>

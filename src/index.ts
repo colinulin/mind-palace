@@ -30,7 +30,8 @@ export default class MindPalace extends MPCore {
         }
         pineconeConfig?: {
             apiKey: string
-            indexName?: string
+            indexName: string
+            embeddingModel?: string
         }
         tags?: string[]
     }) {
@@ -59,6 +60,7 @@ export default class MindPalace extends MPCore {
         }
         if (vectorStore === 'Pinecone' && pineconeConfig) {
             this.Pinecone = new Pinecone(pineconeConfig)
+            this.VectorStore = this.Pinecone
         }
 
         if (!('VectorStore' in this)) {

@@ -20,7 +20,8 @@
     "lint": "eslint **/*.{js,ts}",
     "test": "npm run test:unit && npm run test:integration",
     "test:integration": "vitest run --dir test/integration",
-    "test:unit": "vitest run --dir test/unit"
+    "test:unit": "vitest run --dir test/unit",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
@@ -36,6 +37,7 @@
   ],
   "dependencies": {
     "@anthropic-ai/sdk": "0.78.0",
+    "@pinecone-database/pinecone": "7.1.0",
     "openai": "6.25.0",
     "weaviate-client": "3.11.0",
     "zod": "4.3.6"

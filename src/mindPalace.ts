@@ -18,7 +18,7 @@ export default class MPCore {
     tokenUsage = new TokenCounter()
 
     // Vector Stores
-    VectorStore!: Weaviate
+    VectorStore!: Weaviate | Pinecone
     protected Weaviate: Weaviate | undefined
     protected Pinecone: Pinecone | undefined
 
