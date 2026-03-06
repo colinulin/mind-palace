@@ -111,7 +111,8 @@ export default class Weaviate implements IVectorStore {
         const collectionExists = await this.weaviateClient.collections.exists(this.collectionName)
         if (collectionExists) {
             logger.info({ label: 'Weaviate', message: `Collection (${this.collectionName}) found.` })
-            return this.weaviateClient.collections.get<Memory>(this.collectionName)
+            this.memoryCollection = this.weaviateClient.collections.get<Memory>(this.collectionName)
+            return this.memoryCollection
         }
 
         const memoryCollection = await this.weaviateClient.collections.create<Memory>({ 
@@ -178,6 +179,10 @@ export default class Weaviate implements IVectorStore {
      * Delete stale memories by ID
      */
     async deleteStaleMemories (dataObjectIds: string[]) {
+        if (!dataObjectIds.length) {
+            return
+        }
+
         await this.initWeaviateClient()
         if (!this.memoryCollection) {
             logger.error({

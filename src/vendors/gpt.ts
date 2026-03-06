@@ -213,7 +213,6 @@ export default class GPT extends LLM implements ILLM {
         // convert response back to generic content blocks
         const responseContentBlocks = GPT.createGenericContentBlocks(response)
 
-
         // if last content block is text, then it's a structured response so 
         // convert JSON stringified version of structured output to JS object
         const lastContentBlock = responseContentBlocks[responseContentBlocks.length - 1]

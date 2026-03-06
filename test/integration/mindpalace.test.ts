@@ -19,8 +19,12 @@ describe('Basic memory storage functionality', () => {
             }
         })
 
-        const newMemories = await mp.remember({
-            context: 'My name is Colin and I\'m a developer at Pocket Prep. I hate when you use emdashes in your responses and dont like sycophancy. Make sure you only ever refer to me as sir. The Pocket Prep logo is blue.'
+        // const newMemories = await mp.remember({
+        //     context: 'My name is Colin and I\'m a developer at Pocket Prep. I hate when you use emdashes in your responses and dont like sycophancy. Make sure you only ever refer to me as sir. The Pocket Prep logo is blue.'
+        // })
+
+        const retrievedMemories = await mp.recall({
+            context: 'What should I do today?'
         })
     })
 })

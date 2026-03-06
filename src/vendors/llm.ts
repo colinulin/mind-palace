@@ -93,8 +93,7 @@ export class LLM {
         }
     }) {
         logger.info({ label: 'LLM', message: 'Processing tool use block.' })
-        logger.debug({ label: 'LLM', metadata: params })
-
+        
         const {
             toolUseBlocks,
             MindPalace,
@@ -102,6 +101,7 @@ export class LLM {
             tokenUsage,
             metadata,
         } = params
+        logger.debug({ label: 'LLM', metadata: toolUseBlocks })
 
         const updatedTokenUsage = tokenUsage || {
             input: 0,
@@ -137,6 +137,7 @@ export class LLM {
                 const memoryResults = dataObjects?.map(m => ({
                     summary: m.memory.summary,
                     source: m.memory.source,
+                    uuid: m.uuid,
                 }))
 
                 return {
@@ -182,6 +183,10 @@ export class LLM {
             ...generationConfig,
             messages: [
                 ...(generationConfig?.messages || []),
+                {
+                    role: userRole,
+                    content: toolUseBlocks,
+                },
                 llmToolResult,
             ],
         })

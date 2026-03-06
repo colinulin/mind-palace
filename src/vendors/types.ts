@@ -1,7 +1,5 @@
 import { output, ZodType } from 'zod'
 import { Tool as AnthropicTool } from '@anthropic-ai/sdk/resources/messages'
-import { Vectors, WeaviateObject } from 'weaviate-client'
-import { Memory } from '../types'
 
 // Type for prompt messages role field
 export const userRole = 'user' as const
@@ -31,10 +29,10 @@ export type ToolResultBlock = {
     isError?: boolean
 }
 export type ContentBlock = TextBlock | ThinkingBlock | ToolUseBlock | ToolResultBlock
-export type GenericMessage = ({
+export type GenericMessage = {
     role: typeof userRole | typeof assistantRole
     content: string | ContentBlock[]
-})
+}
 export type StopReason = string | null
 
 // Generic Tool Use blocks
