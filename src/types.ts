@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import OpenAI from 'openai'
 import { ContentBlock } from './vendors/types'
+import * as Gemini from '@google/genai'
 
 // Logger types
 export type LogLevel = 'off' | 'error' | 'info' | 'debug'
@@ -28,7 +29,7 @@ export type IngestingMessage = {
     context: OpenAI.Responses.Response
     llm: 'GPT'
 } | {
-    context: never
+    context: Gemini.GenerateContentResponse
     llm: 'Gemini'
 }
 

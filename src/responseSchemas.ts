@@ -47,7 +47,7 @@ const extractedMemories = (tags: string[]) => z.object({
 const mergedMemories = (tags: string[]) => z.object({
     newMemory: memory(tags).meta({
         description: 'If there is new information that provides context about something new, return a new memory here.',
-    }).optional(),
+    }).optional().nullable(),
     originalMemory: memory(tags).meta({
         description: 'The original memory that has either been updated with the new information or left exactly the same as it was.',
     }).required(),

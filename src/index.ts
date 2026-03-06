@@ -5,6 +5,7 @@ import Weaviate from './vendors/weaviate'
 import logger from './logger'
 import Pinecone from './vendors/pinecone'
 import MPCore from './mindPalace'
+import Gemini from './vendors/gemini'
 
 // Memory store
 export default class MindPalace extends MPCore {
@@ -15,12 +16,15 @@ export default class MindPalace extends MPCore {
         vectorStore?: VectorStoreName
         claudeConfig?: {
             apiKey: string
+            generativeModel?: string
+        }
+        gptConfig?: {
+            apiKey: string
             embeddingModel?: string
             generativeModel?: string
         }
-        gptConfig: { // GPT config is currently required for embedding generation
+        geminiConfig?: {
             apiKey: string
-            embeddingModel?: string
             generativeModel?: string
         }
         weaviateConfig?: {
@@ -30,7 +34,7 @@ export default class MindPalace extends MPCore {
         }
         pineconeConfig?: {
             apiKey: string
-            indexName: string
+            indexName?: string
             embeddingModel?: string
         }
         tags?: string[]
@@ -43,6 +47,7 @@ export default class MindPalace extends MPCore {
             pineconeConfig,
             claudeConfig,
             gptConfig,
+            geminiConfig,
             weaviateConfig,
             tags,
         } = config
@@ -67,10 +72,16 @@ export default class MindPalace extends MPCore {
             logger.error({ label: 'MindPalace', message: 'No Vector Store configuration provided.' })
         }
         
-        this.GPT = new GPT(gptConfig)
+        if (gptConfig?.apiKey) {
+            this.GPT = new GPT(gptConfig)
+        }
 
         if (claudeConfig?.apiKey) {
             this.Claude = new Claude(claudeConfig)
+        }
+
+        if (geminiConfig?.apiKey) {
+            this.Gemini = new Gemini(geminiConfig)
         }
 
         if (llm === 'Claude' && this.Claude) {
@@ -78,6 +89,9 @@ export default class MindPalace extends MPCore {
         }
         if ((!llm || llm === 'GPT') && this.GPT) {
             this.LLM = this.GPT
+        }
+        if ((!llm || llm === 'Gemini') && this.Gemini) {
+            this.LLM = this.Gemini
         }
 
         if (!('LLM' in this)) {
@@ -143,13 +157,12 @@ export default class MindPalace extends MPCore {
  * - Add automated tests
  * - Determine max lengths for memories
  * - Add Gemini
- * - Add Pinecone
+ * - Implement namespaces in Pinecone for userId tracking
  * - Add Readme.md
  * - Add Contribution.md
  * - Add customization params
  * 
  * Future stuff:
- * - Abstract longer methods from MindPalace
  * - Improve isCore prompt
  * - Improve tags
  * - Add support for package-specific env vars

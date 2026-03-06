@@ -91,7 +91,10 @@ export class LLM {
             input: number
             output: number
         }
-    }) {
+    }): Promise<
+        { response: { summary: string; source: string }[] | undefined; toolName: string; toolId: string }[]
+        | GenerateInferenceReturn<Record<string, unknown>, ZodType<Record<string, unknown>>>
+    > {
         logger.info({ label: 'LLM', message: 'Processing tool use block.' })
         
         const {

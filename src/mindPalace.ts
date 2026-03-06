@@ -9,6 +9,7 @@ import Weaviate from './vendors/weaviate'
 import { chunkArray, transformLLMMessagesToGenericBlocks } from './utils'
 import logger from './logger'
 import Pinecone from './vendors/pinecone'
+import Gemini from './vendors/gemini'
 
 /**
  * Core Mind Palace functionality
@@ -23,9 +24,10 @@ export default class MPCore {
     protected Pinecone: Pinecone | undefined
 
     // LLMs
-    LLM!: Claude | GPT
+    LLM!: Claude | GPT | Gemini
     protected Claude: Claude | undefined
     protected GPT: GPT | undefined
+    protected Gemini: Gemini | undefined
 
     // Extract memories from context
     protected async extractMemories (params: IngestingMessage) {
@@ -73,6 +75,9 @@ export default class MPCore {
                 context = transformLLMMessagesToGenericBlocks({ messages: params.context, llm: params.llm })
             }
             else if (params.llm === 'GPT') {
+                context = transformLLMMessagesToGenericBlocks({ messages: params.context, llm: params.llm })
+            }
+            else if (params.llm === 'Gemini') {
                 context = transformLLMMessagesToGenericBlocks({ messages: params.context, llm: params.llm })
             }
             else {

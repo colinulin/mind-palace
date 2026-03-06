@@ -17,7 +17,7 @@ export default class Pinecone implements IVectorStore {
     returnProperties = [ 'quote', 'summary', 'tags', 'source', 'term', 'isCore' ]
 
     constructor (config: {
-        indexName: string
+        indexName?: string
         apiKey: string
         embeddingModel?: string
     }) {
@@ -156,6 +156,10 @@ export default class Pinecone implements IVectorStore {
      * Delete stale memories by ID
      */
     async deleteStaleMemories (dataObjectIds: string[]) {
+        if (!dataObjectIds.length) {
+            return
+        }
+
         const index = this.getIndex()
         await index.deleteMany({ ids: dataObjectIds })
         logger.info({ label: 'Pinecone', message: `Deleted ${dataObjectIds.length} memories from vector store.` })

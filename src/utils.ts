@@ -3,6 +3,8 @@ import OpenAI from 'openai'
 import Claude from './vendors/claude'
 import GPT from './vendors/gpt'
 import { ContentBlock } from './vendors/types'
+import { GenerateContentResponse } from '@google/genai'
+import Gemini from './vendors/gemini'
 
 /**
  * Chunk an array into groups for processing
@@ -21,6 +23,9 @@ export const transformLLMMessagesToGenericBlocks = (params: {
 } | {
     messages: OpenAI.Responses.Response
     llm: 'GPT'
+} | {
+    messages: GenerateContentResponse
+    llm: 'Gemini'
 }): ContentBlock[] => {
     const { messages, llm } = params
 
@@ -31,7 +36,7 @@ export const transformLLMMessagesToGenericBlocks = (params: {
         return Claude.createGenericContentBlocks(messages)
     }
     if (llm === 'Gemini') {
-        // TODO: Implement
+        return Gemini.createGenericContentBlocks(messages)
     }
 
     return []

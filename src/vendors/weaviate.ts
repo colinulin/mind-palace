@@ -20,8 +20,8 @@ export default class Weaviate implements IVectorStore {
     private apiKey: string
 
     // OpenAI connection for embedding generation
-    private openaiApiKey: string
-    private gptClient: GPT
+    private openaiApiKey?: string
+    private gptClient?: GPT
 
     // Initialized and awaited weaviate client and memory collection
     private weaviateClient: WeaviateClient | undefined = undefined
@@ -71,7 +71,7 @@ export default class Weaviate implements IVectorStore {
         collectionName?: string
         apiKey: string
         clusterUrl: string
-        openaiApiKey: string
+        openaiApiKey?: string
     }) {
         const { clusterUrl, apiKey, collectionName, openaiApiKey } = config
 
@@ -80,7 +80,7 @@ export default class Weaviate implements IVectorStore {
         this.collectionName = collectionName || 'MindPalace'
 
         this.openaiApiKey = openaiApiKey
-        this.gptClient = new GPT({ apiKey: openaiApiKey })
+        this.gptClient = openaiApiKey ? new GPT({ apiKey: openaiApiKey }) : undefined
 
         if (!openaiApiKey) {
             logger.warn({ label: 'Weaviate', message: 'No OpenAI API key found.' })
@@ -120,7 +120,7 @@ export default class Weaviate implements IVectorStore {
             properties: this.properties,
             vectorizers: weaviate.configure.vectors.text2VecOpenAI<Memory>({
                 sourceProperties: [ 'content', 'summary' ] as PrimitiveKeys<Memory>[],
-                model: this.gptClient.embeddingModel,
+                model: this.gptClient?.embeddingModel,
                 dimensions: 3072,
                 type: 'text',
             }),
