@@ -13,7 +13,7 @@ export interface IVectorStore {
     ): Promise<void>
     deleteStaleMemories(dataObjectIds: string[]): Promise<void>
     searchMemories(params: {
-        queryString: string
+        queryStrings: string[]
         filters?: { key: keyof Memory; value: string | boolean }[]
         limit: number
         mode: 'hybrid' | 'bm25' | 'nearText'

@@ -144,7 +144,7 @@ export default class MPPinecone extends VectorStore implements IVectorStore {
      * The mode param is accepted for interface compatibility.
      */
     async searchMemories (params: {
-        queryString: string
+        queryStrings: string[]
         filters?: { key: keyof Memory; value: string | boolean }[]
         limit: number
         mode: 'hybrid' | 'bm25' | 'nearText'
@@ -152,40 +152,44 @@ export default class MPPinecone extends VectorStore implements IVectorStore {
         includeNullWithFilter?: boolean
         userId?: string
     }) {
-        const { queryString, filters, limit, includeNullWithFilter, userId } = params
+        const { queryStrings, filters, limit, includeNullWithFilter, userId } = params
         const index = this.getIndex(userId)
 
         const filter = filters?.length
             ? this.buildFilter(filters, includeNullWithFilter)
             : undefined
 
-        logger.info({ label: 'Pinecone', message: `Searching for "${queryString}".` })
+        logger.info({ label: 'Pinecone', message: `Searching for "${queryStrings.join(', ')}".` })
 
-        const results = await index.searchRecords({
+        const searchPromises = queryStrings.map(text => index.searchRecords({
             query: {
                 topK: limit,
-                inputs: { text: queryString },
+                inputs: { text },
                 filter,
             },
-        })
+        }))
+
+        // combine and dedupe all results
+        const resultsMap = (await Promise.all(searchPromises)).reduce((acc, response) => {
+            response.result.hits.forEach(result => {
+                acc.set(result._id, {
+                    memory: result.fields as Memory,
+                    score: result._score,
+                    uuid: result._id,
+                })
+            })
+
+            return acc
+        }, new Map<
+            string, 
+            { memory: Memory; score: number; uuid: string }
+        >())
+        const results = [ ...resultsMap.values() ]
 
         logger.debug({ label: 'Pinecone', metadata: results })
-        logger.info({ label: 'Pinecone', message: `Search returned ${results.result.hits.length} results.` })
+        logger.info({ label: 'Pinecone', message: `Search returned ${results.length} results.` })
 
-        return results.result.hits
-            .reduce((acc, h) => {
-                if (!h.fields) {
-                    return acc
-                }
-
-                acc.push({
-                    memory: h.fields as Memory,
-                    score: h._score,
-                    uuid: h._id,
-                })
-
-                return acc
-            }, new Array<{ memory: Memory; score: number; uuid: string }>())
+        return results
     }
 
     /**

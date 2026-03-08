@@ -5,34 +5,50 @@ import { ContentBlock, userRole } from './vendors/types'
 /**
  * Prompt to find memories relevant to a given context
  */
-const relevantMemorySearch = (context: ContentBlock[] | string) => {
+const relevantMemorySearch = (context: ContentBlock[] | string | string[]) => {
     return {
-        systemMessage: 'You search a memory database for relevant information to help respond to a conversation.',
+        systemMessage: `You are a memory retrieval agent. Your job is to search a vector store of memories to find context that will help respond to a conversation.
+
+Memories are short informational snippets extracted from past conversations including user preferences, personal details, project context, prior decisions, and institutional knowledge.
+
+## How to search effectively
+- Phrase queries as concise topic descriptions or statements, not questions (e.g. "preferred frontend framework" not "what framework do they like?")
+- Think about how the information was likely stored, and match that phrasing
+- Search for the most specific relevant topics first
+- If the conversation touches multiple distinct topics, search for each separately
+- Even for seemingly simple requests, consider whether the user might have stored preferences about tone, format, or conventions that would improve the response
+
+## How to select memories
+- Search results include a memory ID and content for each match
+- After searching, review the results and select only the memories that are genuinely relevant to the current conversation
+- Return the IDs of relevant memories in your response
+- If no memories are relevant — either because search returned nothing useful or because the conversation truly needs no additional context (e.g. a simple "thanks" or "goodbye") — return an empty array
+- Err on the side of including a memory if it could plausibly improve the response, but do not include memories that are only superficially related`,
         messages: [
             {
                 role: userRole,
-                content: `<conversation>${JSON.stringify(context)}</conversation>`,
-            },
-            {
-                role: userRole,
-                content: `<instructions>
-Past conversations and research have been converted into memories and stored in a vector store database. Memories are short pieces of information that provides important context things like preferences, personal information, institutional knowledge, etc. You can search these memories using the search_memories tool to find relevant memories. In the next step, you will be responding to the above conversation. Your job now is to find memories that will help inform and improve a response to this conversation.
-</instructions>`,
+                content: `<conversation>${JSON.stringify(context)}</conversation>
+                
+Search for any memories that would help inform a response to this conversation.`,
             },
         ],
         tools: [
             {
                 name: 'search_memories',
-                description: 'Perform a vector store hybrid search (alpha=0.5) on all available memories. If no relevant memories are found, an empty array will be returned.',
+                description: 'Search the memory vector store. Returns an array of matching memories, or an empty array if none are found.',
                 parameters: {
                     type: 'object' as const,
                     properties: {
-                        query: {
-                            type: 'string',
-                            description: 'The query to use in the vector store hybrid search.',
+                        queries: {
+                            type: 'array',
+                            description: 'The queries to use in the vector store search.',
+                            properties: {
+                                type: 'string',
+                                description: 'Query string to use in the vector store search.',
+                            },
                         },
                     },
-                    required: [ 'query' ],
+                    required: [ 'queries' ],
                 },
             },
         ],
@@ -42,22 +58,41 @@ Past conversations and research have been converted into memories and stored in 
 /**
  * Prompt to extract memories from content blocks
  */
-const memoryExtraction = (context: ContentBlock[] | string) => {
+const memoryExtraction = (context: ContentBlock[] | string | string[]) => {
     return {
-        systemMessage: 'You extract information from conversations to store in a database for future reference. This information is stored as memories that can be searched and used to inform and improve future conversations.',
+        systemMessage: `You extract information from conversations and store it as memories in a vector database for future retrieval.
+
+## What to extract
+- User preferences (tone, format, tools, workflows, conventions)
+- Personal or professional details the user has shared
+- Project context, goals, architecture decisions, or constraints
+- Institutional knowledge, domain-specific terminology, or conventions
+- Information from external sources (tools, websites, documents) that the user found relevant
+- Recurring patterns or corrections that indicate how the user wants things done
+
+## What NOT to extract
+- Anything generated by the AI/assistant (unless the user explicitly confirmed or endorsed it)
+- Ephemeral information that fully served its purpose within the conversation (e.g. a one-off calculation, a typo correction)
+- Information that is common knowledge and would not meaningfully improve a future response
+
+## Memory granularity
+Each memory should contain exactly one piece of information. If a single statement from the user reveals multiple facts, split them into separate memories.
+- "I'm a frontend engineer at Acme and I prefer Vue over React" → two memories: one about their role, one about their framework preference
+- "Our API uses REST with JWT auth and rate limits at 1000 req/min" → three memories: protocol, auth method, rate limit
+This makes memories easier to deduplicate, update individually, and retrieve without pulling in unrelated context.
+
+## How to write summaries
+Summaries are embedded in a vector store and matched against future search queries. Write them as concise, declarative statements capturing exactly one piece of information that would be easy to find via semantic search. Do not combine multiple facts into a single summary. Include the key nouns and concepts someone would search for. Front-load the most important terms.
+- Good: "User prefers TypeScript with Zod for schema validation"
+- Bad: "The user mentioned they like using Zod"
+- Good: "Project uses PostgreSQL with pgvector for memory storage"
+- Bad: "Database setup was discussed"`,
         messages: [
             {
                 role: userRole,
-                content: `<conversation>${JSON.stringify(context)}</conversation>`,
-            },
-            {
-                role: userRole,
-                content: `<instructions>
-Review the conversation and extract important information based on the following criteria:
-1. The information is coming directly from the user or an external source (i.e., a website or other tool) and NOT the AI or assistant
-2. The information provides important context (i.e., user preferences, personal information, institutional knowledge, etc.) that could be useful in future conversations
-3. The information is NOT only applicable to the specific conversation or user request
-</instructions>`,
+                content: `<conversation>${JSON.stringify(context)}</conversation>
+                
+Extract any memories from this conversation that would be valuable for future reference. If nothing worth extracting is present, return an empty memories array.`,
             },
         ],
     }
@@ -68,31 +103,46 @@ Review the conversation and extract important information based on the following
  */
 const memoryMerge = (newMemory: Memory, nearMemory: Memory) => {
     return {
-        systemMessage: 'You have obtained new information and your job is to determine if that information is new or should be merged with current information.',
+        systemMessage: `You are a memory deduplication agent. You receive an existing memory from a vector store and a candidate new memory that was flagged as potentially overlapping. Your job is to determine the relationship between them and decide how to handle the new information.
+
+## Decision criteria
+
+**Update the existing memory** when the new information:
+- Says the same thing in different words (keep the better-worded version)
+- Corrects or supersedes the existing information (e.g. a preference changed, a status was updated)
+- Adds a small clarifying detail to the same fact (e.g. adding a version number to a known tool preference)
+
+When updating, always prefer the most recent information. Do not preserve outdated facts. If something changed, reflect the current state only. Carry over tags, term, and isCore from the existing memory unless the new information warrants changing them.
+
+**Create a new memory** when the new information:
+- Covers a distinct fact that happens to be topically related (e.g. existing: "uses PostgreSQL for the database" vs new: "prefers Prisma as an ORM")
+- Would violate the one-fact-per-memory principle if merged
+
+**Both update and create** when part of the new information updates the existing fact and part introduces a genuinely separate fact.
+
+**Leave unchanged** when the existing memory already fully captures the information and no rewording would improve it. Return the existing memory exactly as-is and set newMemory to null.`,
         messages: [
             {
                 role: userRole,
-                content: `<current>
+                content: `<existing_memory>
 Quote: ${nearMemory.quote}
 Summary: ${nearMemory.summary}
 Source: ${nearMemory.source}
 Tags: ${nearMemory.tags}
 Term: ${nearMemory.term}
-</current>`,
-            },
-            {
-                role: userRole,
-                content: `<new>
+IsCore: ${nearMemory.isCore}
+</existing_memory>
+
+<candidate_memory>
 Quote: ${newMemory.quote}
 Summary: ${newMemory.summary}
 Source: ${newMemory.source}
-</new>`,
-            },
-            {
-                role: userRole,
-                content: `<instructions>
-Review the Current block of information and compare it to the New information to determine if the New should be used to update the Current or if it should be used to create a new memory. If the New information overlaps, compliments, or contradicts Current information, then update current memory with the New information. If the New information provides context about something new (even if it is related to the Current), then create a new memory. If the New information meets both of these criteria, update the current memory and create a new memory with the information that provides new context.
-</instructions>`,
+Tags: ${newMemory.tags}
+Term: ${newMemory.term}
+IsCore: ${newMemory.isCore}
+</candidate_memory>
+
+Compare these two memories and decide whether to update the existing memory, create a new separate memory, or both. Follow the decision criteria in your instructions.`,
             },
         ],
     }

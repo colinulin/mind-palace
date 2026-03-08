@@ -141,7 +141,7 @@ new MindPalace({
 ### `recall()`
 | Parameter | Type | Description | Options |
 |-|-|-|-|
-| `context` | `string` &#124; `object` | This is the request that will be used to search for relevant memories. Its goal will be to find memories that provide relevant context and help better respond to the request. | See "Ingesting Message Formats" below for options |
+| `context` | `string` &#124; `string[]` &#124; `object` | This is the request that will be used to search for relevant memories. Its goal will be to find memories that provide relevant context and help better respond to the request. | See "Ingesting Message Formats" below for options |
 | `llm?` | `string` | If passing context in the Claude, GPT, or Gemini response format, you must include this parameter. | `Claude` &#124; `GPT` &#124; `Gemini` |
 | `queryVectorStoreDirectly?` | `boolean` | Bypass LLM vector query generation to query the vector store directly and return the top N memories. | `boolean` |
 | `limit?` | `number` | Total number of memories to return (Default: 5). **NOTE:** This is only used if `queryVectorStoreDirectly: true`. | `number` |
@@ -162,7 +162,7 @@ mp.recall({
 ### `remember()`
 | Parameter | Type | Description | Options |
 |-|-|-|-|
-| `context` | `string` &#124; `object` | This is the context that will be mined for important information to create and update memories. | See "Ingesting Message Formats" below for options |
+| `context` | `string` &#124; `string[]` &#124; `object` | This is the context that will be mined for important information to create and update memories. | See "Ingesting Message Formats" below for options |
 | `llm?` | `string` | If passing context in the Claude, GPT, or Gemini response format, you must include this parameter. | `Claude` &#124; `GPT` &#124; `Gemini` |
 | `userId?` | `string` &#124; `number` | Filters memories by the specified user ID. | `string` |
 | `groupId?` | `string` &#124; `number` | Filters memories by a custom ID. This can be used with or separate from `userId` for added levels of memory grouping. | `string` |
@@ -291,14 +291,14 @@ If you JUST created an account and added credit to access the Gemini/OpenAI/Clau
 #### [OpenAI GPT Status](https://status.openai.com/)
 #### [Anthropic Claude Status](https://status.claude.com/)
 
-
 ## Future Updates:
 - [ ] More automated tests
 - [ ] Improved max token lengths for memories
 - [ ] Make it possible for pinecone to also search in non-namespaced areas when passing a userId
 - [ ] Add Contribution.md
-- [ ] Add customization params: embedding model, LLM, logging, reranker
-- [ ] Make tags actually do something
+- [ ] Add customization params: embedding model, LLM, logging, reranker, prompts
 - [ ] Add reranker support
-- [ ] Improve isCore prompt
-- [ ] Add support for package-specific env vars
+- [ ] Create sandbox UI for testing
+- [ ] Create memory management UI for memory CRUD commands
+- [ ] Consider different prompts depending on if a userId is passed
+- [ ] Add max length for short-term memories, incorporate it into memory extraction prompt and filters stale memories from memory search

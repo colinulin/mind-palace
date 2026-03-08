@@ -21,7 +21,7 @@ export type Memory = {
 
 // Chat ingesting message types
 export type IngestingMessage = {
-    context: string | ContentBlock[]
+    context: string | string[] | ContentBlock[]
 } | {
     context: Anthropic.Beta.Messages.BetaMessage | Anthropic.Messages.Message
     llm: 'Claude'

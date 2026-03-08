@@ -23,7 +23,7 @@ describe('GPT + Weaviate', () => {
         })
 
         const newMemories = await mp.remember({
-            context: 'My name is Colin and I\'m a developer at Pocket Prep. I hate when you use emdashes in your responses and dont like sycophancy. Make sure you only ever refer to me as sir. The Pocket Prep logo is blue.'
+            context: 'My name is Colin and I\'m a developer. I like the color blue and riding my bike.'
         })
 
         const retrievedMemories = await mp.recall({
@@ -46,7 +46,7 @@ describe('GPT + Pinecone', () => {
         })
 
         const newMemories = await mp.remember({
-            context: 'My name is Colin and I\'m a developer at Pocket Prep. I hate when you use emdashes in your responses and dont like sycophancy. Make sure you only ever refer to me as sir. The Pocket Prep logo is blue.'
+            context: 'My name is Colin and I\'m a developer. I like the color blue and riding my bike.'
         })
 
         const retrievedMemories = await mp.recall({
@@ -69,7 +69,7 @@ describe('Gemini + Pinecone', () => {
         })
 
         const newMemories = await mp.remember({
-            context: 'My name is Colin and I\'m a developer at Pocket Prep. I hate when you use emdashes in your responses and dont like sycophancy. Make sure you only ever refer to me as sir. The Pocket Prep logo is blue.'
+            context: 'My name is Colin and I\'m a developer. I like the color blue and riding my bike.'
         })
 
         const retrievedMemories = await mp.recall({
@@ -94,7 +94,7 @@ describe('Claude + Pinecone', () => {
         })
 
         const newMemories = await mp.remember({
-            context: 'My name is Colin and I\'m a developer at Pocket Prep. I hate when you use emdashes in your responses and dont like sycophancy. Make sure you only ever refer to me as sir. The Pocket Prep logo is blue.'
+            context: 'My name is Colin and I\'m a developer. I like the color blue and riding my bike.'
         })
 
         const retrievedMemories = await mp.recall({

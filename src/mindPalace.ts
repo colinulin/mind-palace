@@ -31,7 +31,7 @@ export default class MPCore {
 
     // Extract memories from context
     protected async extractMemories (params: IngestingMessage) {
-        let context: string | ContentBlock[]
+        let context: string | string[] | ContentBlock[]
         if ('llm' in params) {
             if (params.llm === 'Claude') {
                 context = transformLLMMessagesToGenericBlocks({ messages: params.context, llm: params.llm })
@@ -72,9 +72,19 @@ export default class MPCore {
         limit?: number
     }) {
         // if querying vector store directly, use search method and return early
-        if (params.queryVectorStoreDirectly && typeof params.context === 'string') {
+        if (
+            params.queryVectorStoreDirectly 
+            && (
+                typeof params.context === 'string' 
+                || (
+                    params.context instanceof Array
+                    && typeof params.context[0] === 'string'
+                )
+            )
+        ) {
+            const query = typeof params.context === 'string' ? [ params.context ] : params.context as string[] 
             const memories = await this.searchMemories({
-                queryString: params.context,
+                query,
                 limit: params.limit,
                 userId: params.userId,
                 groupId: params.groupId,
@@ -83,7 +93,7 @@ export default class MPCore {
             return memories?.map(m => m.memory) || []
         }
 
-        let context: string | ContentBlock[]
+        let context: string | string[] | ContentBlock[]
         if ('llm' in params) {
             if (params.llm === 'Claude') {
                 context = transformLLMMessagesToGenericBlocks({ messages: params.context, llm: params.llm })
@@ -178,7 +188,7 @@ export default class MPCore {
         const filters = metadata && this.VectorStore.createFilters(metadata)
         const nearMemoryGroups = await Promise.all(newMemories.map(async m => {
             const nearMemory = (await this.VectorStore.searchMemories({
-                queryString: m.quote,
+                queryStrings: [ m.summary ],
                 limit: 1,
                 mode: 'nearText',
                 filters,
@@ -186,7 +196,7 @@ export default class MPCore {
                 userId: metadata?.userId,
             }))?.[0]
 
-            if ((nearMemory?.score || 0) < 0.8) {
+            if ((nearMemory?.score || 0) < 0.7) {
                 return {
                     newMemory: m,
                 }
@@ -199,7 +209,8 @@ export default class MPCore {
         }))
 
         // process 10 at a time to prevent rate limiting
-        const chunkedGroups = chunkArray(nearMemoryGroups.filter(nmg => !!nmg), 10)
+        const batchSize = 10
+        const chunkedGroups = chunkArray(nearMemoryGroups.filter(nmg => !!nmg), batchSize)
         let updatedMemories: Memory[] = []
         const staleMemoryIds: string[] = []
         const responseSchema = responseSchemas.mergedMemories(this.tags)
@@ -222,7 +233,10 @@ export default class MPCore {
                 this.tokenUsage.trackInference(tokenUsage, model)
 
                 // log stale memory ID in vector db to delete
-                staleMemoryIds.push(memoryGroup.nearMemory.uuid)
+                const action = structuredResponse?.action
+                if (action === 'updated' || action === 'updated_and_created_new') {
+                    staleMemoryIds.push(memoryGroup.nearMemory.uuid)
+                }
 
                 if (!structuredResponse) {
                     return
@@ -231,7 +245,7 @@ export default class MPCore {
                 // add userId and groupId onto new/updated memories preserving original values
                 return [
                     {
-                        ...structuredResponse.originalMemory,
+                        ...structuredResponse.existingMemory,
                         userId: memoryGroup.nearMemory.memory.userId || null,
                         groupId: memoryGroup.nearMemory.memory.groupId || null,
                     },
@@ -268,17 +282,17 @@ export default class MPCore {
 
     // Search memory based on a search string and return top N relevant memories
     async searchMemories (params: { 
-        queryString: string
+        query: string[]
         limit?: number
         alpha?: number 
         groupId?: string | number
         userId?: string | number
     }) {
-        const { queryString, limit, alpha } = params
+        const { query, limit, alpha } = params
         const filters = this.VectorStore.createFilters(params)
 
         const vectorStoreResults = await this.VectorStore.searchMemories({
-            queryString,
+            queryStrings: query,
             limit: limit ?? 5,
             mode: 'hybrid',
             alpha: alpha || 0.5,

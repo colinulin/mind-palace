@@ -116,9 +116,9 @@ export abstract class LLM {
         // process all tool use blocks
         const toolUsePromises = toolUseBlocks.map(async block => {
             if (block.name === 'search_memories') {
-                const toolInput = block.input as { query: string }
+                const toolInput = block.input as { queries: string[] }
                 const dataObjects = await MindPalace.VectorStore.searchMemories({
-                    queryString: toolInput.query,
+                    queryStrings: toolInput.queries,
                     mode: 'hybrid',
                     limit: 10,
                     filters,

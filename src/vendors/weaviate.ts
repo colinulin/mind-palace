@@ -203,7 +203,7 @@ export default class Weaviate extends VectorStore implements IVectorStore {
      * Search memories and return top N
      */
     async searchMemories (params: {
-        queryString: string
+        queryStrings: string[]
         filters?: { key: keyof Memory; value: string | boolean }[]
         limit: number
         mode: 'hybrid' | 'bm25' | 'nearText'
@@ -219,7 +219,7 @@ export default class Weaviate extends VectorStore implements IVectorStore {
             return
         }
 
-        const { includeNullWithFilter, queryString, limit, mode, filters, alpha: customAlpha } = params
+        const { includeNullWithFilter, queryStrings, limit, mode, filters, alpha: customAlpha } = params
 
         // configure return options for weaviate request
         const returnOpts: SearchOptions<Memory, undefined> = {
@@ -250,23 +250,41 @@ export default class Weaviate extends VectorStore implements IVectorStore {
                 ? 1
                 : (customAlpha || 0.5)
 
-        logger.info({ label: 'Weaviate', message: `Searching for "${queryString}".` })
-        const searchResults = await this.memoryCollection.query.hybrid(
+        logger.info({ label: 'Weaviate', message: `Searching for "${queryStrings.join(', ')}".` })
+
+        const searchPromises = queryStrings.map(queryString => this.memoryCollection?.query.hybrid(
             queryString,
             {
                 ...returnOpts,
                 alpha,
             },
-        )
+        ))
 
-        logger.debug({ label: 'Weaviate', metadata: searchResults })
-        logger.info({ label: 'Weaviate', message: `Search returned ${searchResults.objects.length} results.` })
+        // combine and dedupe all results
+        const resultsMap = (await Promise.all(searchPromises)).reduce((acc, response) => {
+            if (!response) {
+                return acc
+            }
 
-        const memories = searchResults.objects.map(r => ({
-            memory: r.properties,
-            score: r.metadata?.score || 0,
-            uuid: r.uuid,
-        }))
+            response.objects.forEach(result => {
+                acc.set(result.uuid, {
+                    memory: result.properties,
+                    score: result.metadata?.score || 0,
+                    uuid: result.uuid,
+                })
+            })
+
+            return acc
+        }, new Map<
+            string, 
+            { memory: Memory; score: number; uuid: string }
+        >())
+        const results = [ ...resultsMap.values() ]
+
+        logger.debug({ label: 'Weaviate', metadata: results })
+        logger.info({ label: 'Weaviate', message: `Search returned ${results.length} results.` })
+
+        const memories = results
 
         return memories
     }

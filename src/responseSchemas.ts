@@ -6,22 +6,22 @@ import z from 'zod'
  */
 const memory = (tags: string[]) => z.object({
     quote: z.string().meta({
-        description: 'The exact text including and surrounding the important information. This should be just enough of the original text to give context.',
+        description: 'The shortest passage from the conversation that contains the source of this information. This is used for attribution and verification, not for retrieval. Keep to 1-2 sentences maximum. Must be verbatim text from the conversation.',
     }),
     summary: z.string().meta({
-        description: 'A concise summary of the important details for future reference.',
+        description: 'A concise, declarative statement summarizing a single piece of information for storage in a vector database.',
     }),
     tags: z.array(z.enum(tags)).meta({
-        description: 'Terms to use for grouping and searching for relevant memories.',
+        description: 'Broad categories this memory falls under. Select all that apply, but prefer the most specific relevant tags over generic ones. Used for filtering and grouping memories alongside vector search.',
     }),
     source: z.string().meta({
-        description: '1-5 word reference describing where the information originated.',
+        description: 'A 1-5 word label identifying where the information originated. Use the speaker or tool name, not a description of the content. Examples: "user", "web search", "GitHub API", "uploaded document".',
     }),
     term: z.enum([ 'long', 'short' ]).meta({
-        description: 'Long memories are those that are unlikely to change and are widely applicable across different kinds of requests and Short memories are those that have a high likelihood of changing in the near future or are only relevant for a limited time or context.',
+        description: 'Long: stable facts unlikely to change — identity, established preferences, architecture decisions, domain knowledge. Short: information that may become outdated or has limited applicability — current project status, temporary goals, time-sensitive details, evolving opinions.',
     }),
     isCore: z.boolean().meta({
-        description: 'If true, this memory will be included at the beginning of all future chat sessions. Core memories contain information that is relevant in all contexts and can improve most conversations.',
+        description: 'If true, this memory is prepended to every future conversation regardless of topic. Reserve this for universally relevant information such as the user\'s name, primary role, or a formatting preference that applies to all responses. Most memories should be false. When in doubt, set false.',
     }),
 })
 
@@ -45,12 +45,18 @@ const extractedMemories = (tags: string[]) => z.object({
  * Response schema for merging similar memories
  */
 const mergedMemories = (tags: string[]) => z.object({
-    newMemory: memory(tags).meta({
-        description: 'If there is new information that provides context about something new, return a new memory here.',
-    }).optional().nullable(),
-    originalMemory: memory(tags).meta({
-        description: 'The original memory that has either been updated with the new information or left exactly the same as it was.',
-    }).required(),
+    action: z.enum([ 'kept_as_is', 'updated', 'created_new', 'updated_and_created_new' ]).meta({
+        description:
+            'What action was taken. "kept_as_is": existing memory unchanged, candidate was redundant. "updated": existing memory was modified with new information. "created_new": existing memory unchanged, candidate is a distinct fact stored separately. "updated_and_created_new": existing memory was modified AND a separate new fact was extracted.',
+    }),
+    existingMemory: memory(tags).meta({
+        description:
+            'The existing memory, either returned exactly as-is or updated with new information. Always required.',
+    }),
+    newMemory: memory(tags).optional().nullable().meta({
+        description:
+            'A separate memory to create when the candidate contains a distinct fact that does not belong in the existing memory. Null when the candidate was fully merged or redundant.',
+    }),
 })
 
 export default {
