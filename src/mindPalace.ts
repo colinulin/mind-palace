@@ -68,7 +68,21 @@ export default class MPCore {
     protected async findRelevantMemories (params: IngestingMessage & {
         groupId?: string | number
         userId?: string | number
+        queryVectorStoreDirectly?: boolean
+        limit?: number
     }) {
+        // if querying vector store directly, use search method and return early
+        if (params.queryVectorStoreDirectly && typeof params.context === 'string') {
+            const memories = await this.searchMemories({
+                queryString: params.context,
+                limit: params.limit,
+                userId: params.userId,
+                groupId: params.groupId,
+            })
+
+            return memories?.map(m => m.memory) || []
+        }
+
         let context: string | ContentBlock[]
         if ('llm' in params) {
             if (params.llm === 'Claude') {
@@ -145,7 +159,10 @@ export default class MPCore {
         }
 
         // get memories from vector store by ID
-        const memories = await this.VectorStore.fetchMemoriesById(memoryIds)
+        const memories = await this.VectorStore.fetchMemoriesById(
+            memoryIds, 
+            params.userId ? String(params.userId) : undefined,
+        )
         logger.debug({ label: 'MindPalace', metadata: memories })
         logger.info({ label: 'MindPalace', message: 'Fetched relevant memories.' })
 
@@ -158,19 +175,7 @@ export default class MPCore {
         metadata?: VectorMetadata,
     ) {
         // iterate over all new memories searching for highly similar ones already in the vector db
-        const filters: { key: keyof Memory; value: string | boolean }[] = []
-        if (metadata?.groupId) {
-            filters.push({
-                key: 'groupId',
-                value: metadata.groupId,
-            })
-        }
-        if (metadata?.userId) {
-            filters.push({
-                key: 'userId',
-                value: metadata.userId,
-            })
-        }
+        const filters = metadata && this.VectorStore.createFilters(metadata)
         const nearMemoryGroups = await Promise.all(newMemories.map(async m => {
             const nearMemory = (await this.VectorStore.searchMemories({
                 queryString: m.quote,
@@ -178,6 +183,7 @@ export default class MPCore {
                 mode: 'nearText',
                 filters,
                 includeNullWithFilter: true,
+                userId: metadata?.userId,
             }))?.[0]
 
             if ((nearMemory?.score || 0) < 0.8) {
@@ -249,8 +255,13 @@ export default class MPCore {
     }
 
     // Fetch all core memories
-    async fetchCoreMemories () {
-        const coreMemories = await this.VectorStore.fetchMemories({ filter: { key: 'isCore', value: true } })
+    async fetchCoreMemories (userId?: string | number) {
+        const coreMemories = await this.VectorStore.fetchMemories(
+            { 
+                filter: { key: 'isCore', value: true },
+                userId: userId ? String(userId) : undefined,
+            },
+        )
 
         return coreMemories.map(cm => cm.summary)
     }
@@ -264,19 +275,7 @@ export default class MPCore {
         userId?: string | number
     }) {
         const { queryString, limit, alpha } = params
-        const filters: { key: keyof Memory; value: string | boolean }[] = []
-        if (params?.groupId) {
-            filters.push({
-                key: 'groupId',
-                value: String(params.groupId),
-            })
-        }
-        if (params?.userId) {
-            filters.push({
-                key: 'userId',
-                value: String(params.userId),
-            })
-        }
+        const filters = this.VectorStore.createFilters(params)
 
         const vectorStoreResults = await this.VectorStore.searchMemories({
             queryString,
@@ -284,6 +283,7 @@ export default class MPCore {
             mode: 'hybrid',
             alpha: alpha || 0.5,
             filters,
+            userId: params.userId ? String(params.userId) : undefined,
         })
         
         return vectorStoreResults

@@ -1,16 +1,15 @@
 import { randomUUID } from 'crypto'
 import logger from '../logger'
 import { Memory } from '../types'
-import { IVectorStore } from './vectorStore'
-import { Pinecone as PineconeClass, Index, RecordMetadata } from '@pinecone-database/pinecone'
+import { IVectorStore, VectorStore } from './vectorStore'
+import { Pinecone, Index, RecordMetadata } from '@pinecone-database/pinecone'
 
 type MemoryMetadata = RecordMetadata & Memory
 
-export default class Pinecone implements IVectorStore {
+export default class MPPinecone extends VectorStore implements IVectorStore {
     private indexName: string
-    private embeddingModel: string
 
-    private pineconeClient: PineconeClass
+    private pineconeClient: Pinecone
     private pineconeIndex: Index<MemoryMetadata> | undefined = undefined
 
     returnMetadata = [ 'creationTime', 'updateTime' ]
@@ -19,18 +18,18 @@ export default class Pinecone implements IVectorStore {
     constructor (config: {
         indexName?: string
         apiKey: string
-        embeddingModel?: string
     }) {
-        const { apiKey, indexName, embeddingModel } = config
+        super()
+
+        const { apiKey, indexName } = config
 
         this.indexName = indexName || 'mind-palace'
-        this.embeddingModel = embeddingModel || 'multilingual-e5-large'
 
         if (!apiKey) {
             logger.warn({ label: 'Pinecone', message: 'No Pinecone API key provided.' })
         }
 
-        this.pineconeClient = new PineconeClass({
+        this.pineconeClient = new Pinecone({
             apiKey,
         })
 
@@ -40,39 +39,16 @@ export default class Pinecone implements IVectorStore {
     /**
      * Get or create the Pinecone index targeted at the configured namespace
      */
-    private getIndex () {
-        if (this.pineconeIndex) {
-            return this.pineconeIndex
-        }
-
+    private getIndex (userId?: string) {
+        const namespace = userId ? `user_${userId}` : undefined
         this.pineconeIndex = this.pineconeClient
-            .index<MemoryMetadata>({ name: this.indexName })
+            .index<MemoryMetadata>({ name: this.indexName, namespace })
 
         logger.info({
             label: 'Pinecone',
             message: `Connected to index, ${this.indexName}.`,
         })
         return this.pineconeIndex
-    }
-
-    /**
-     * Generate dense embeddings using Pinecone's built-in inference API
-     */
-    private async generateEmbeddings (inputs: string[], inputType: 'passage' | 'query' = 'passage') {
-        const response = await this.pineconeClient.inference.embed({
-            model: this.embeddingModel,
-            inputs,
-            parameters: {
-                inputType,
-                truncate: 'END',
-            },
-        })
-
-        logger.debug({ label: 'Pinecone', metadata: response })
-        logger.info({ label: 'Pinecone', message: `Generated ${response.data.length} embeddings.` })
-        return response.data.map(embedding =>
-            'values' in embedding ? embedding.values : [],
-        )
     }
 
     /**
@@ -121,14 +97,10 @@ export default class Pinecone implements IVectorStore {
         memories: Memory[],
         metadata?: { groupId?: string; userId?: string },
     ) {
-        const index = this.getIndex()
+        const index = this.getIndex(metadata?.userId)
 
-        const embeddingTexts = memories.map(m => `${m.quote}\n${m.summary}`)
-        const embeddings = await this.generateEmbeddings(embeddingTexts)
-
-        const records = memories.map((memory, i) => ({
+        const records = memories.map(memory => ({
             id: randomUUID(),
-            values: embeddings[i],
             metadata: {
                 quote: memory.quote,
                 summary: memory.summary,
@@ -155,12 +127,12 @@ export default class Pinecone implements IVectorStore {
     /**
      * Delete stale memories by ID
      */
-    async deleteStaleMemories (dataObjectIds: string[]) {
+    async deleteStaleMemories (dataObjectIds: string[], userId?: string) {
         if (!dataObjectIds.length) {
             return
         }
 
-        const index = this.getIndex()
+        const index = this.getIndex(userId)
         await index.deleteMany({ ids: dataObjectIds })
         logger.info({ label: 'Pinecone', message: `Deleted ${dataObjectIds.length} memories from vector store.` })
     }
@@ -178,11 +150,10 @@ export default class Pinecone implements IVectorStore {
         mode: 'hybrid' | 'bm25' | 'nearText'
         alpha?: number
         includeNullWithFilter?: boolean
+        userId?: string
     }) {
-        const index = this.getIndex()
-        const { queryString, filters, limit, includeNullWithFilter } = params
-
-        const [ queryVector ] = await this.generateEmbeddings([ queryString ], 'query')
+        const { queryString, filters, limit, includeNullWithFilter, userId } = params
+        const index = this.getIndex(userId)
 
         const filter = filters?.length
             ? this.buildFilter(filters, includeNullWithFilter)
@@ -190,30 +161,38 @@ export default class Pinecone implements IVectorStore {
 
         logger.info({ label: 'Pinecone', message: `Searching for "${queryString}".` })
 
-        const results = await index.query({
-            vector: queryVector,
-            topK: limit,
-            includeMetadata: true,
-            filter,
+        const results = await index.searchRecords({
+            query: {
+                topK: limit,
+                inputs: { text: queryString },
+                filter,
+            },
         })
 
         logger.debug({ label: 'Pinecone', metadata: results })
-        logger.info({ label: 'Pinecone', message: `Search returned ${results.matches.length} results.` })
+        logger.info({ label: 'Pinecone', message: `Search returned ${results.result.hits.length} results.` })
 
-        return results.matches
-            .filter(match => match.metadata)
-            .map(match => ({
-                memory: this.toMemory(match.metadata!),
-                score: match.score || 0,
-                uuid: match.id,
-            }))
+        return results.result.hits
+            .reduce((acc, h) => {
+                if (!h.fields) {
+                    return acc
+                }
+
+                acc.push({
+                    memory: h.fields as Memory,
+                    score: h._score,
+                    uuid: h._id,
+                })
+
+                return acc
+            }, new Array<{ memory: Memory; score: number; uuid: string }>())
     }
 
     /**
      * Fetch memories by ID
      */
-    async fetchMemoriesById (memoryIds: string[]) {
-        const index = this.getIndex()
+    async fetchMemoriesById (memoryIds: string[], userId?: string) {
+        const index = this.getIndex(userId)
 
         logger.info({ label: 'Pinecone', message: 'Fetching memories by ID.' })
         const response = await index.fetch({ ids: memoryIds })
@@ -234,8 +213,9 @@ export default class Pinecone implements IVectorStore {
     async fetchMemories (params?: {
         filter?: { key: keyof Memory; value: string | boolean }
         limit?: number
+        userId?: string
     }) {
-        const index = this.getIndex()
+        const index = this.getIndex(params?.userId)
         const limit = params?.limit || 100
 
         logger.info({ label: 'Pinecone', message: 'Fetching memories.' })

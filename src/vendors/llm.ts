@@ -7,7 +7,6 @@ import {
     ToolUseBlock,
     userRole,
 } from './types'
-import { Memory } from '../types'
 import logger from '../logger'
 import MPCore from '../mindPalace'
 
@@ -23,7 +22,7 @@ export interface ILLM {
 /**
  * Parent class for LLM implementations
  */
-export class LLM {
+export abstract class LLM {
     /**
      * Convert and validate structured return to object from JSON string
      */
@@ -112,19 +111,7 @@ export class LLM {
         }
 
         // setup metadata filters
-        const filters: { key: keyof Memory; value: string | boolean }[] = []
-        if (metadata?.groupId) {
-            filters.push({
-                key: 'groupId',
-                value: metadata.groupId,
-            })
-        }
-        if (metadata?.userId) {
-            filters.push({
-                key: 'userId',
-                value: metadata.userId,
-            })
-        }
+        const filters = metadata && MindPalace.VectorStore.createFilters(metadata)
 
         // process all tool use blocks
         const toolUsePromises = toolUseBlocks.map(async block => {

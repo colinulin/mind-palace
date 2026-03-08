@@ -103,6 +103,8 @@ export default class MindPalace extends MPCore {
     async recall (params: IngestingMessage & {
         groupId?: string | number
         userId?: string | number
+        queryVectorStoreDirectly?: boolean
+        limit?: number
     }) {
         const relevantMemories = await this.findRelevantMemories(params)
         if (!relevantMemories) {
@@ -141,7 +143,7 @@ export default class MindPalace extends MPCore {
             metadata,
         )
         await Promise.all([
-            this.VectorStore.deleteStaleMemories(staleMemoryIds),
+            this.VectorStore.deleteStaleMemories(staleMemoryIds, metadata.userId),
             this.VectorStore.insertMemoriesIntoVectorStore(
                 updatedMemories, 
                 metadata,
@@ -151,19 +153,3 @@ export default class MindPalace extends MPCore {
         return updatedMemories
     }
 }
-
-/**
- * TODO:
- * - Add automated tests
- * - Determine max lengths for memories
- * - Add Gemini
- * - Implement namespaces in Pinecone for userId tracking
- * - Add Readme.md
- * - Add Contribution.md
- * - Add customization params
- * 
- * Future stuff:
- * - Improve isCore prompt
- * - Improve tags
- * - Add support for package-specific env vars
- */

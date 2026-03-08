@@ -11,7 +11,7 @@ export interface IVectorStore {
         memories: Memory[],
         metadata?: { groupId?: string; userId?: string },
     ): Promise<void>
-    deleteStaleMemories (dataObjectIds: string[]): Promise<void>
+    deleteStaleMemories(dataObjectIds: string[]): Promise<void>
     searchMemories(params: {
         queryString: string
         filters?: { key: keyof Memory; value: string | boolean }[]
@@ -25,4 +25,36 @@ export interface IVectorStore {
         filter?: { key: keyof Memory; value: string | boolean }
         limit?: number
     }): Promise<Memory[]>
+    createFilters(params: { groupId?: string | number; userId?: string | number }): {
+        key: keyof Memory
+        value: string
+    }[]
+}
+
+/**
+ * Parent class for Vector Store implementations
+ */
+export abstract class VectorStore {
+    /**
+     * Create filter array for vector store searching
+     */
+    createFilters (params: { groupId?: string | number; userId?: string | number }) {
+        const userId = params.userId ? String(params.userId) : undefined
+        const groupId = params.groupId ? String(params.groupId) : undefined
+        const filters: { key: keyof Memory; value: string }[] = []
+        if (groupId) {
+            filters.push({
+                key: 'groupId',
+                value: groupId,
+            })
+        }
+        if (userId) {
+            filters.push({
+                key: 'userId',
+                value: userId,
+            })
+        }
+
+        return filters
+    }
 }

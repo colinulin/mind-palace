@@ -11,9 +11,9 @@ import weaviate, {
 import { Memory } from '../types'
 import GPT from './gpt'
 import logger from '../logger'
-import { IVectorStore } from './vectorStore'
+import { IVectorStore, VectorStore } from './vectorStore'
 
-export default class Weaviate implements IVectorStore {
+export default class Weaviate extends VectorStore implements IVectorStore {
     // Weaviate connection settings
     private collectionName: string
     private clusterUrl: string
@@ -73,6 +73,8 @@ export default class Weaviate implements IVectorStore {
         clusterUrl: string
         openaiApiKey?: string
     }) {
+        super()
+
         const { clusterUrl, apiKey, collectionName, openaiApiKey } = config
 
         this.clusterUrl = clusterUrl
