@@ -1,10 +1,13 @@
 import { randomUUID } from 'crypto'
 import logger from '../logger'
 import { Memory } from '../types'
-import { IVectorStore, VectorStore } from './vectorStore'
+import { IVectorStore, VectorMemory, VectorStore } from './vectorStore'
 import { Pinecone, Index, RecordMetadata } from '@pinecone-database/pinecone'
 
-type MemoryMetadata = RecordMetadata & Memory
+type MemoryMetadata = RecordMetadata & Memory & {
+    updatedAtUnix: number
+    createdAtUnix: number
+}
 
 export default class MPPinecone extends VectorStore implements IVectorStore {
     private indexName: string
@@ -110,6 +113,8 @@ export default class MPPinecone extends VectorStore implements IVectorStore {
                 isCore: memory.isCore,
                 userId: metadata?.userId || '',
                 groupId: metadata?.groupId || '',
+                updatedAtUnix: new Date().getTime(),
+                createdAtUnix: new Date().getTime(),
             },
         }))
 
@@ -151,6 +156,7 @@ export default class MPPinecone extends VectorStore implements IVectorStore {
         alpha?: number
         includeNullWithFilter?: boolean
         userId?: string
+        maxHoursShortTermLength?: number
     }) {
         const { queryStrings, filters, limit, includeNullWithFilter, userId } = params
         const index = this.getIndex(userId)
@@ -172,18 +178,27 @@ export default class MPPinecone extends VectorStore implements IVectorStore {
         // combine and dedupe all results
         const resultsMap = (await Promise.all(searchPromises)).reduce((acc, response) => {
             response.result.hits.forEach(result => {
+                const fields = result.fields as MemoryMetadata
+
+                // determine if short-term expiration has passed and omit memory if so (default: 72 hours
+                const shortTermExpiration = 
+                    fields.updatedAtUnix + ((params.maxHoursShortTermLength || 72) * 1000 * 60 * 60)
+
+                if (fields.term === 'short' && fields.updatedAtUnix > shortTermExpiration) {
+                    return
+                }
+
                 acc.set(result._id, {
-                    memory: result.fields as Memory,
+                    memory: fields,
                     score: result._score,
                     uuid: result._id,
+                    createdAt: new Date(fields.createdAtUnix),
+                    updatedAt: new Date(fields.updatedAtUnix),
                 })
             })
 
             return acc
-        }, new Map<
-            string, 
-            { memory: Memory; score: number; uuid: string }
-        >())
+        }, new Map<string, VectorMemory>())
         const results = [ ...resultsMap.values() ]
 
         logger.debug({ label: 'Pinecone', metadata: results })
@@ -220,7 +235,7 @@ export default class MPPinecone extends VectorStore implements IVectorStore {
         userId?: string
     }) {
         const index = this.getIndex(params?.userId)
-        const limit = params?.limit || 100
+        const limit = params?.limit || 1000
 
         logger.info({ label: 'Pinecone', message: 'Fetching memories.' })
 

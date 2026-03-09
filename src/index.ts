@@ -104,6 +104,8 @@ export default class MindPalace extends MPCore {
         groupId?: string | number
         userId?: string | number
         queryVectorStoreDirectly?: boolean
+        includeAllCoreMemories?: boolean
+        maxHoursShortTermLength?: number
         limit?: number
     }) {
         const relevantMemories = await this.findRelevantMemories(params)
@@ -112,13 +114,46 @@ export default class MindPalace extends MPCore {
             return
         }
 
+        // format and optionally group memories by whether they're core
         const formattedMemories = relevantMemories
-            .map(m => `Information: ${m.summary}\nMemory: "${m.quote}"`)
-            .join('\n\n')
+            .reduce((acc, m) => {
+                const formattedMemory = `- ${m.summary} [${m.source}, ${m.term}-term]`
+
+                if (params.includeAllCoreMemories && m.isCore) {
+                    acc.coreMemories += `\n${formattedMemory}`
+                } else {
+                    acc.regularMemories += `\n${formattedMemory}`
+                }
+
+                return acc
+            }, { regularMemories: '', coreMemories: '' })
+
+        // create the memory message text
+        /* eslint-disable max-len */
+        const messageParts: string[] = []
+        messageParts.push(`<memory_context>
+The following is information you already know from previous conversations. Incorporate this context naturally into your response without explicitly referencing that you are recalling memories unless the user asks. If any memory conflicts with something the user says in the current conversation, always defer to the current conversation.`)
+
+        if (params.includeAllCoreMemories && formattedMemories.coreMemories) {
+            messageParts.push(`
+<core_memories>
+These are always-relevant facts about the context:${formattedMemories.coreMemories}
+</core_memories>`)
+        }
+
+        if (formattedMemories.regularMemories) {
+            messageParts.push(`
+<recalled_memories>
+These were retrieved as potentially relevant to the current conversation:${formattedMemories.regularMemories}
+</recalled_memories>`)
+        }
+
+        messageParts.push(`
+</memory_context>`)
+        /* eslint-enable max-len */
 
         return {
-            // eslint-disable-next-line max-len
-            message: `Below is a list of memories and information from previous conversations to help you better respond to the following request.\n<memories>${formattedMemories}</memories>`,
+            message: messageParts.join(''),
             memories: relevantMemories,
         }
     }

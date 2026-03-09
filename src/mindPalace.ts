@@ -70,6 +70,8 @@ export default class MPCore {
         userId?: string | number
         queryVectorStoreDirectly?: boolean
         limit?: number
+        includeAllCoreMemories?: boolean
+        maxHoursShortTermLength?: number
     }) {
         // if querying vector store directly, use search method and return early
         if (
@@ -83,14 +85,30 @@ export default class MPCore {
             )
         ) {
             const query = typeof params.context === 'string' ? [ params.context ] : params.context as string[] 
-            const memories = await this.searchMemories({
+
+            // search vector store directly
+            const memorySearchPromise = this.searchMemories({
                 query,
                 limit: params.limit,
                 userId: params.userId,
                 groupId: params.groupId,
+                includeCoreMemories: !params.includeAllCoreMemories,
+                maxHoursShortTermLength: params.maxHoursShortTermLength,
             })
 
-            return memories?.map(m => m.memory) || []
+            // if including all core memories, do a separate core memory fetch
+            const coreMemoryPromise = params.includeAllCoreMemories
+                ? this.fetchCoreMemories({ userId: params.userId })
+                : undefined
+
+            const allMemories = await Promise.all([
+                memorySearchPromise,
+                coreMemoryPromise,
+            ])
+
+            const memories = allMemories.flat().filter(m => !!m)
+
+            return memories?.map(m => 'memory' in m ? m.memory : m) || []
         }
 
         let context: string | string[] | ContentBlock[]
@@ -156,6 +174,8 @@ export default class MPCore {
                 retryLimit: 3,
                 generationConfig,
                 metadata,
+                includeCoreMemories: !params.includeAllCoreMemories,
+                maxHoursShortTermLength: params.maxHoursShortTermLength,
             })
             this.tokenUsage.trackInference({
                 input: toolUseResponse.tokenUsage.input,
@@ -269,7 +289,8 @@ export default class MPCore {
     }
 
     // Fetch all core memories
-    async fetchCoreMemories (userId?: string | number) {
+    async fetchCoreMemories (params: { userId?: string | number }) {
+        const { userId } = params
         const coreMemories = await this.VectorStore.fetchMemories(
             { 
                 filter: { key: 'isCore', value: true },
@@ -277,7 +298,7 @@ export default class MPCore {
             },
         )
 
-        return coreMemories.map(cm => cm.summary)
+        return coreMemories
     }
 
     // Search memory based on a search string and return top N relevant memories
@@ -287,8 +308,10 @@ export default class MPCore {
         alpha?: number 
         groupId?: string | number
         userId?: string | number
+        includeCoreMemories?: boolean
+        maxHoursShortTermLength?: number
     }) {
-        const { query, limit, alpha } = params
+        const { query, limit, alpha, maxHoursShortTermLength } = params
         const filters = this.VectorStore.createFilters(params)
 
         const vectorStoreResults = await this.VectorStore.searchMemories({
@@ -298,6 +321,7 @@ export default class MPCore {
             alpha: alpha || 0.5,
             filters,
             userId: params.userId ? String(params.userId) : undefined,
+            maxHoursShortTermLength,
         })
         
         return vectorStoreResults

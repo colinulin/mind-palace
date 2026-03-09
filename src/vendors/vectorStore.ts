@@ -1,5 +1,13 @@
 import { Memory } from '../types'
 
+export type VectorMemory = {
+    memory: Memory
+    score: number
+    uuid: string
+    createdAt: Date | undefined
+    updatedAt: Date | undefined
+}
+
 /**
  * Parent types for Vector Store integration
  */
@@ -19,7 +27,7 @@ export interface IVectorStore {
         mode: 'hybrid' | 'bm25' | 'nearText'
         alpha?: number
         includeNullWithFilter?: boolean
-    }): Promise<{ memory: Memory; uuid: string; score: number }[] | undefined>
+    }): Promise<VectorMemory[] | undefined>
     fetchMemoriesById(memoryIds: string[]): Promise<Memory[]>
     fetchMemories(params?: { 
         filter?: { key: keyof Memory; value: string | boolean }
@@ -27,7 +35,7 @@ export interface IVectorStore {
     }): Promise<Memory[]>
     createFilters(params: { groupId?: string | number; userId?: string | number }): {
         key: keyof Memory
-        value: string
+        value: string | boolean
     }[]
 }
 
@@ -38,10 +46,15 @@ export abstract class VectorStore {
     /**
      * Create filter array for vector store searching
      */
-    createFilters (params: { groupId?: string | number; userId?: string | number }) {
+    createFilters (params: { 
+        groupId?: string | number
+        userId?: string | number
+        includeCoreMemories?: boolean
+    }) {
         const userId = params.userId ? String(params.userId) : undefined
         const groupId = params.groupId ? String(params.groupId) : undefined
-        const filters: { key: keyof Memory; value: string }[] = []
+        const includeCoreMemories = params.includeCoreMemories
+        const filters: { key: keyof Memory; value: string | boolean }[] = []
         if (groupId) {
             filters.push({
                 key: 'groupId',
@@ -52,6 +65,15 @@ export abstract class VectorStore {
             filters.push({
                 key: 'userId',
                 value: userId,
+            })
+        }
+
+        // if we're explicitly excluding core memories, then we need to filter them out, otherwise
+        // they'll be included by default
+        if (includeCoreMemories === false) {
+            filters.push({
+                key: 'isCore',
+                value: includeCoreMemories,
             })
         }
 

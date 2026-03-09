@@ -41,7 +41,7 @@ export abstract class LLM {
      * processes that request and optionally kicks off another inference request
      * with the tool response.
      */
-    // overload for not coninuing generation
+    // overload for not continuing generation
     processToolUsage (params: { 
         toolUseBlocks: ToolUseBlock[]
         MindPalace: MPCore
@@ -51,6 +51,8 @@ export abstract class LLM {
             input: number
             output: number
         }
+        includeCoreMemories: boolean
+        maxHoursShortTermLength?: number
     }): Promise<
         {
             response: {
@@ -75,6 +77,8 @@ export abstract class LLM {
             input: number
             output: number
         }
+        includeCoreMemories: boolean
+        maxHoursShortTermLength?: number
     }): Promise<GenerateInferenceReturn<T, U>>
     // implementation
     async processToolUsage (params:  { 
@@ -90,6 +94,8 @@ export abstract class LLM {
             input: number
             output: number
         }
+        includeCoreMemories: boolean
+        maxHoursShortTermLength?: number
     }): Promise<
         { response: { summary: string; source: string }[] | undefined; toolName: string; toolId: string }[]
         | GenerateInferenceReturn<Record<string, unknown>, ZodType<Record<string, unknown>>>
@@ -102,6 +108,8 @@ export abstract class LLM {
             continueGenerationAfterProcessing,
             tokenUsage,
             metadata,
+            includeCoreMemories,
+            maxHoursShortTermLength,
         } = params
         logger.debug({ label: 'LLM', metadata: toolUseBlocks })
 
@@ -111,7 +119,10 @@ export abstract class LLM {
         }
 
         // setup metadata filters
-        const filters = metadata && MindPalace.VectorStore.createFilters(metadata)
+        const filters = metadata && MindPalace.VectorStore.createFilters({
+            ...metadata,
+            includeCoreMemories,
+        })
 
         // process all tool use blocks
         const toolUsePromises = toolUseBlocks.map(async block => {
@@ -123,6 +134,7 @@ export abstract class LLM {
                     limit: 10,
                     filters,
                     includeNullWithFilter: true,
+                    maxHoursShortTermLength: maxHoursShortTermLength || 72,
                 })
                 const memoryResults = dataObjects?.map(m => ({
                     summary: m.memory.summary,
@@ -217,6 +229,7 @@ export abstract class LLM {
             retryLimit,
             generationConfig,
             tokenUsage: updatedTokenUsage,
+            includeCoreMemories,
         })
     }
 }

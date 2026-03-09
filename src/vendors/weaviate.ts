@@ -11,7 +11,7 @@ import weaviate, {
 import { Memory } from '../types'
 import GPT from './gpt'
 import logger from '../logger'
-import { IVectorStore, VectorStore } from './vectorStore'
+import { IVectorStore, VectorMemory, VectorStore } from './vectorStore'
 
 export default class Weaviate extends VectorStore implements IVectorStore {
     // Weaviate connection settings
@@ -209,6 +209,7 @@ export default class Weaviate extends VectorStore implements IVectorStore {
         mode: 'hybrid' | 'bm25' | 'nearText'
         alpha?: number
         includeNullWithFilter?: boolean
+        maxHoursShortTermLength?: number
     }) {
         await this.initWeaviateClient()
         if (!this.memoryCollection) {
@@ -267,7 +268,18 @@ export default class Weaviate extends VectorStore implements IVectorStore {
             }
 
             response.objects.forEach(result => {
+                // determine if short-term expiration has passed and omit memory if so (default: 72 hours)
+                const updateTime = (result.metadata?.updateTime || new Date()).getTime()
+                const shortTermExpiration = 
+                    updateTime + ((params.maxHoursShortTermLength || 72) * 1000 * 60 * 60)
+
+                if (result.properties.term === 'short' && updateTime > shortTermExpiration) {
+                    return
+                }
+
                 acc.set(result.uuid, {
+                    createdAt: result.metadata?.creationTime,
+                    updatedAt: result.metadata?.updateTime,
                     memory: result.properties,
                     score: result.metadata?.score || 0,
                     uuid: result.uuid,
@@ -275,10 +287,7 @@ export default class Weaviate extends VectorStore implements IVectorStore {
             })
 
             return acc
-        }, new Map<
-            string, 
-            { memory: Memory; score: number; uuid: string }
-        >())
+        }, new Map<string, VectorMemory>())
         const results = [ ...resultsMap.values() ]
 
         logger.debug({ label: 'Weaviate', metadata: results })
