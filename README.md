@@ -294,10 +294,13 @@ If you JUST created an account and added credit to access the Gemini/OpenAI/Clau
 #### [Anthropic Claude Status](https://status.claude.com/)
 
 ## Future Updates:
-- [ ] More automated tests
+- [ ] More automated unit tests
 - [ ] Make it possible for pinecone to also search in non-namespaced areas when passing a userId
-- [ ] Add Contribution.md
+- [ ] Add CONTRIBUTION.md
 - [ ] Add customization params: embedding model, LLM, logging, reranker, prompts
 - [ ] Add reranker support
 - [ ] Create sandbox UI for testing
 - [ ] Create memory management UI for memory CRUD commands
+- [ ] Add fun logo to README.md
+- [ ] Add those cool badge shield things to README.md
+- [ ] Do first release to NPM package! 
