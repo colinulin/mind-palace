@@ -30,7 +30,7 @@ export default class MPCore {
     protected Gemini: Gemini | undefined
 
     // Extract memories from context
-    protected async extractMemories (params: IngestingMessage) {
+    protected async extractMemories (params: IngestingMessage, userId?: string) {
         let context: string | string[] | ContentBlock[]
         if ('llm' in params) {
             if (params.llm === 'Claude') {
@@ -50,7 +50,7 @@ export default class MPCore {
         logger.info({ label: 'MindPalace', message: 'Beginning memory extraction.' })
 
         const responseSchema = responseSchemas.extractedMemories(this.tags)
-        const { messages, systemMessage } = prompts.memoryExtraction(context)
+        const { messages, systemMessage } = prompts.memoryExtraction(context, userId)
         const { structuredResponse, tokenUsage, model } = await this.LLM.generateInference({
             responseSchema,
             messages,

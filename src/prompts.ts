@@ -58,13 +58,13 @@ Search for any memories that would help inform a response to this conversation.`
 /**
  * Prompt to extract memories from content blocks
  */
-const memoryExtraction = (context: ContentBlock[] | string | string[]) => {
+const memoryExtraction = (context: ContentBlock[] | string | string[], userId?: string) => {
     return {
         systemMessage: `You extract information from conversations and store it as memories in a vector database for future retrieval.
 
 ## What to extract
-- User preferences (tone, format, tools, workflows, conventions)
-- Personal or professional details the user has shared
+${userId ? `- User preferences (tone, format, tools, workflows, conventions)
+- Personal or professional details the user has shared` : ''}
 - Project context, goals, architecture decisions, or constraints
 - Institutional knowledge, domain-specific terminology, or conventions
 - Information from external sources (tools, websites, documents) that the user found relevant
@@ -76,7 +76,7 @@ const memoryExtraction = (context: ContentBlock[] | string | string[]) => {
 - Information that is common knowledge and would not meaningfully improve a future response
 
 ## Memory granularity
-Each memory should contain exactly one piece of information. If a single statement from the user reveals multiple facts, split them into separate memories.
+Each memory should contain exactly one piece of information. If a single statement reveals multiple facts, split them into separate memories.
 - "I'm a frontend engineer at Acme and I prefer Vue over React" → two memories: one about their role, one about their framework preference
 - "Our API uses REST with JWT auth and rate limits at 1000 req/min" → three memories: protocol, auth method, rate limit
 This makes memories easier to deduplicate, update individually, and retrieve without pulling in unrelated context.
@@ -108,7 +108,6 @@ const memoryMerge = (newMemory: Memory, nearMemory: Memory) => {
 ## Decision criteria
 
 **Update the existing memory** when the new information:
-- Says the same thing in different words (keep the better-worded version)
 - Corrects or supersedes the existing information (e.g. a preference changed, a status was updated)
 - Adds a small clarifying detail to the same fact (e.g. adding a version number to a known tool preference)
 
@@ -120,7 +119,7 @@ When updating, always prefer the most recent information. Do not preserve outdat
 
 **Both update and create** when part of the new information updates the existing fact and part introduces a genuinely separate fact.
 
-**Leave unchanged** when the existing memory already fully captures the information and no rewording would improve it. Return the existing memory exactly as-is and set newMemory to null.`,
+**Leave unchanged** when the existing memory already fully captures the information. Return the existing memory exactly as-is and set newMemory to null.`,
         messages: [
             {
                 role: userRole,

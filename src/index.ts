@@ -137,7 +137,7 @@ export default class MindPalace extends MPCore {
         if (params.userId) {
             metadata.userId = String(params.userId)
         }
-        const newMemories = await this.extractMemories(params) || []
+        const newMemories = await this.extractMemories(params, metadata.userId) || []
         const { updatedMemories, staleMemoryIds } = await this.findAndMergeNewMemories(
             newMemories.map(m => ({ ...m, userId: metadata.userId || null, groupId: metadata.groupId || null })),
             metadata,
