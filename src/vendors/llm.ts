@@ -11,12 +11,61 @@ import logger from '../logger'
 import MPCore from '../mindPalace'
 
 /**
- * Helper class interface definition for LLM implementations
+ * Helper class interface definition for LLM implementations.
+ *
+ * Note: All implementations also share a static `createGenericContentBlocks` method
+ * and protected methods for converting generic tools/messages to vendor-specific formats,
+ * but TypeScript interfaces cannot enforce static or protected members.
  */
 export interface ILLM {
     generativeModel: string
 
     generateInference: GenerateInference<Record<string, unknown>, ZodType<Record<string, unknown>>>
+
+    extractStructuredReturn: <T extends Record<string, unknown>, U extends ZodType<T>>(
+        textBlock: TextBlock,
+        responseFormat: U,
+    ) => T
+
+    processToolUsage: {
+        (params: {
+            toolUseBlocks: ToolUseBlock[]
+            MindPalace: MPCore
+            metadata?: { groupId?: string; userId?: string }
+            continueGenerationAfterProcessing?: false
+            tokenUsage?: {
+                input: number
+                output: number
+            }
+            includeCoreMemories: boolean
+            maxHoursShortTermLength?: number
+        }): Promise<
+            {
+                response: {
+                    summary: string
+                    source: string
+                }[]
+                toolName: string
+                toolId: string
+            }[]
+        >
+        <T extends Record<string, unknown>, U extends ZodType<T>>(params: {
+            toolUseBlocks: ToolUseBlock[]
+            MindPalace: MPCore
+            metadata?: { groupId?: string; userId?: string }
+            continueGenerationAfterProcessing: true
+            generationConfig: GenerateInferenceParams<U>
+            retries?: number
+            retryLimit?: number
+            stopTool?: string
+            tokenUsage?: {
+                input: number
+                output: number
+            }
+            includeCoreMemories: boolean
+            maxHoursShortTermLength?: number
+        }): Promise<GenerateInferenceReturn<T, U>>
+    }
 }
 
 /**
