@@ -4,27 +4,29 @@ import GPT from './vendors/gpt'
 import responseSchemas from './responseSchemas'
 import prompts from './prompts'
 import TokenCounter from './tokenCounter'
-import { IngestingMessage, Memory, VectorMetadata } from './types'
+import { IngestingMessage, Memory, MemoryConfig, VectorMetadata } from './types'
 import Weaviate from './vendors/weaviate'
 import { chunkArray, transformLLMMessagesToGenericBlocks } from './utils'
 import logger from './logger'
 import Pinecone from './vendors/pinecone'
 import Gemini from './vendors/gemini'
+import { ILLM } from './vendors/llm'
+import { IVectorStore } from './vendors/vectorStore'
 
 /**
  * Core Mind Palace functionality
  */
 export default class MPCore {
-    tags = [ 'database schema', 'response formatting', 'code style', 'institutional knowledge' ]
+    memoryConfig!: MemoryConfig
     tokenUsage = new TokenCounter()
 
     // Vector Stores
-    VectorStore!: Weaviate | Pinecone
+    VectorStore!: Weaviate | Pinecone | IVectorStore
     protected Weaviate: Weaviate | undefined
     protected Pinecone: Pinecone | undefined
 
     // LLMs
-    LLM!: Claude | GPT | Gemini
+    LLM!: Claude | GPT | Gemini | ILLM
     protected Claude: Claude | undefined
     protected GPT: GPT | undefined
     protected Gemini: Gemini | undefined
@@ -49,7 +51,7 @@ export default class MPCore {
 
         logger.info({ label: 'MindPalace', message: 'Beginning memory extraction.' })
 
-        const responseSchema = responseSchemas.extractedMemories(this.tags)
+        const responseSchema = responseSchemas.extractedMemories(this.memoryConfig)
         const { messages, systemMessage } = prompts.memoryExtraction(context, userId)
         const { structuredResponse, tokenUsage, model } = await this.LLM.generateInference({
             responseSchema,
@@ -233,7 +235,7 @@ export default class MPCore {
         const chunkedGroups = chunkArray(nearMemoryGroups.filter(nmg => !!nmg), batchSize)
         let updatedMemories: Memory[] = []
         const staleMemoryIds: string[] = []
-        const responseSchema = responseSchemas.mergedMemories(this.tags)
+        const responseSchema = responseSchemas.mergedMemories(this.memoryConfig)
         for (const cg of chunkedGroups) {
             const updatedGroup = await Promise.all(cg.map(async memoryGroup => {
                 if (!memoryGroup.nearMemory) {
@@ -244,6 +246,7 @@ export default class MPCore {
                 const { messages, systemMessage } = prompts.memoryMerge(
                     memoryGroup.newMemory, 
                     memoryGroup.nearMemory.memory,
+                    this.memoryConfig,
                 )
                 const { structuredResponse, tokenUsage, model } = await this.LLM.generateInference({
                     responseSchema,

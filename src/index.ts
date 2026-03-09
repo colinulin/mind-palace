@@ -1,19 +1,27 @@
 import Claude from './vendors/claude'
 import GPT from './vendors/gpt'
-import { IngestingMessage, LLMName, VectorMetadata, VectorStoreName } from './types'
+import { IngestingMessage, LLMName, MemoryConfig, VectorMetadata, VectorStoreName } from './types'
 import Weaviate from './vendors/weaviate'
 import logger from './logger'
 import Pinecone from './vendors/pinecone'
 import MPCore from './mindPalace'
 import Gemini from './vendors/gemini'
+import { ILLM } from './vendors/llm'
+import { IVectorStore } from './vendors/vectorStore'
 
 // Memory store
 export default class MindPalace extends MPCore {
-    tags = [ 'database schema', 'response formatting', 'code style', 'institutional knowledge' ]
+    memoryConfig: MemoryConfig = {
+        includeTerm: true,
+        includeCore: true,
+        tags: [ 'database schema', 'response formatting', 'code style', 'institutional knowledge' ],
+    }
 
     constructor (config: {
         llm?: LLMName
         vectorStore?: VectorStoreName
+        customLLM?: ILLM
+        customVectorStore?: IVectorStore
         claudeConfig?: {
             apiKey: string
             generativeModel?: string
@@ -37,7 +45,7 @@ export default class MindPalace extends MPCore {
             indexName?: string
             embeddingModel?: string
         }
-        tags?: string[]
+        memoryConfig?: MemoryConfig
     }) {
         super()
 
@@ -49,21 +57,28 @@ export default class MindPalace extends MPCore {
             gptConfig,
             geminiConfig,
             weaviateConfig,
-            tags,
+            customLLM,
+            customVectorStore,
+            memoryConfig,
         } = config
 
-        if (tags) {
-            this.tags = tags
+        this.memoryConfig = {
+            ...this.memoryConfig,
+            ...memoryConfig,
         }
         
-        if ((!vectorStore || vectorStore === 'Weaviate') && weaviateConfig) {
+        // Setup vector store
+        if (customVectorStore) {
+            this.VectorStore = customVectorStore
+        }
+        else if ((!vectorStore || vectorStore === 'Weaviate') && weaviateConfig) {
             this.Weaviate = new Weaviate({
                 ...weaviateConfig,
                 openaiApiKey: gptConfig?.apiKey,
             })
             this.VectorStore = this.Weaviate
         }
-        if (vectorStore === 'Pinecone' && pineconeConfig) {
+        else if (vectorStore === 'Pinecone' && pineconeConfig) {
             this.Pinecone = new Pinecone(pineconeConfig)
             this.VectorStore = this.Pinecone
         }
@@ -72,25 +87,27 @@ export default class MindPalace extends MPCore {
             logger.error({ label: 'MindPalace', message: 'No Vector Store configuration provided.' })
         }
         
+        // Setup LLM
         if (gptConfig?.apiKey) {
             this.GPT = new GPT(gptConfig)
         }
-
         if (claudeConfig?.apiKey) {
             this.Claude = new Claude(claudeConfig)
         }
-
         if (geminiConfig?.apiKey) {
             this.Gemini = new Gemini(geminiConfig)
         }
 
-        if (llm === 'Claude' && this.Claude) {
+        if (customLLM) {
+            this.LLM = customLLM
+        }
+        else if (llm === 'Claude' && this.Claude) {
             this.LLM = this.Claude
         }
-        if ((!llm || llm === 'GPT') && this.GPT) {
+        else if ((!llm || llm === 'GPT') && this.GPT) {
             this.LLM = this.GPT
         }
-        if ((!llm || llm === 'Gemini') && this.Gemini) {
+        else if ((llm === 'Gemini') && this.Gemini) {
             this.LLM = this.Gemini
         }
 
@@ -117,7 +134,11 @@ export default class MindPalace extends MPCore {
         // format and optionally group memories by whether they're core
         const formattedMemories = relevantMemories
             .reduce((acc, m) => {
-                const formattedMemory = `- ${m.summary} [${m.source}, ${m.term}-term]`
+                const memoryMetadata: string[] = []
+                if (m.source) memoryMetadata.push(m.source)
+                if (m.term) memoryMetadata.push(`${m.term}-term`)
+                const memoryMetadataFormatted = memoryMetadata.length ? ` [${memoryMetadata.join(', ')}]` : ''
+                const formattedMemory = `- ${m.summary}${memoryMetadataFormatted}`
 
                 if (params.includeAllCoreMemories && m.isCore) {
                     acc.coreMemories += `\n${formattedMemory}`

@@ -1,5 +1,5 @@
 /* eslint-disable max-len */
-import { Memory } from './types'
+import { Memory, MemoryConfig } from './types'
 import { ContentBlock, userRole } from './vendors/types'
 
 /**
@@ -22,7 +22,7 @@ Memories are short informational snippets extracted from past conversations incl
 - Search results include a memory ID and content for each match
 - After searching, review the results and select only the memories that are genuinely relevant to the current conversation
 - Return the IDs of relevant memories in your response
-- If no memories are relevant — either because search returned nothing useful or because the conversation truly needs no additional context (e.g. a simple "thanks" or "goodbye") — return an empty array
+- If no memories are relevant either because search returned nothing useful or because the conversation truly needs no additional context (e.g. a simple "thanks" or "goodbye") return an empty array
 - Err on the side of including a memory if it could plausibly improve the response, but do not include memories that are only superficially related`,
         messages: [
             {
@@ -101,7 +101,7 @@ Extract any memories from this conversation that would be valuable for future re
 /**
  * Prompt to consider and do memory merge
  */
-const memoryMerge = (newMemory: Memory, nearMemory: Memory) => {
+const memoryMerge = (newMemory: Memory, nearMemory: Memory, memoryConfig: MemoryConfig) => {
     return {
         systemMessage: `You are a memory deduplication agent. You receive an existing memory from a vector store and a candidate new memory that was flagged as potentially overlapping. Your job is to determine the relationship between them and decide how to handle the new information.
 
@@ -124,21 +124,21 @@ When updating, always prefer the most recent information. Do not preserve outdat
             {
                 role: userRole,
                 content: `<existing_memory>
-Quote: ${nearMemory.quote}
-Summary: ${nearMemory.summary}
-Source: ${nearMemory.source}
-Tags: ${nearMemory.tags}
-Term: ${nearMemory.term}
-IsCore: ${nearMemory.isCore}
+Summary: ${nearMemory.summary}${
+    memoryConfig.includeQuote ? `\nQuote: ${nearMemory.quote}` : ''}${
+    memoryConfig.includeSource ? `\nSource: ${nearMemory.source}` : ''}${
+    memoryConfig.includeTags ? `\nTags: ${nearMemory.tags?.join(', ')}` : ''}${
+    memoryConfig.includeCore ? `\nIsCore: ${nearMemory.isCore}` : ''}${
+    memoryConfig.includeTerm ? `\nTerm: ${nearMemory.term}` : ''}
 </existing_memory>
 
 <candidate_memory>
-Quote: ${newMemory.quote}
-Summary: ${newMemory.summary}
-Source: ${newMemory.source}
-Tags: ${newMemory.tags}
-Term: ${newMemory.term}
-IsCore: ${newMemory.isCore}
+Summary: ${newMemory.summary}${
+    memoryConfig.includeQuote ? `\nQuote: ${newMemory.quote}` : ''}${
+    memoryConfig.includeSource ? `\nSource: ${newMemory.source}` : ''}${
+    memoryConfig.includeTags ? `\nTags: ${newMemory.tags?.join(', ')}` : ''}${
+    memoryConfig.includeCore ? `\nIsCore: ${newMemory.isCore}` : ''}${
+    memoryConfig.includeTerm ? `\nTerm: ${newMemory.term}` : ''}
 </candidate_memory>
 
 Compare these two memories and decide whether to update the existing memory, create a new separate memory, or both. Follow the decision criteria in your instructions.`,

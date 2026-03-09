@@ -1,6 +1,5 @@
 import { ZodType } from 'zod'
 import {
-    GenerateInference,
     GenerateInferenceParams,
     GenerateInferenceReturn,
     TextBlock,
@@ -20,7 +19,9 @@ import MPCore from '../mindPalace'
 export interface ILLM {
     generativeModel: string
 
-    generateInference: GenerateInference<Record<string, unknown>, ZodType<Record<string, unknown>>>
+    generateInference: <T extends Record<string, unknown>, U extends ZodType<T>>(
+        params: GenerateInferenceParams<U>,
+    ) => Promise<GenerateInferenceReturn<T, U>>
 
     extractStructuredReturn: <T extends Record<string, unknown>, U extends ZodType<T>>(
         textBlock: TextBlock,
@@ -146,7 +147,7 @@ export abstract class LLM {
         includeCoreMemories: boolean
         maxHoursShortTermLength?: number
     }): Promise<
-        { response: { summary: string; source: string }[] | undefined; toolName: string; toolId: string }[]
+        { response: { summary: string; source?: string }[] | undefined; toolName: string; toolId: string }[]
         | GenerateInferenceReturn<Record<string, unknown>, ZodType<Record<string, unknown>>>
     > {
         logger.info({ label: 'LLM', message: 'Processing tool use block.' })
@@ -184,7 +185,7 @@ export abstract class LLM {
                     filters,
                     includeNullWithFilter: true,
                     maxHoursShortTermLength: maxHoursShortTermLength || 72,
-                })
+                }) || []
                 const memoryResults = dataObjects?.map(m => ({
                     summary: m.memory.summary,
                     source: m.memory.source,

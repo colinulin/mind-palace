@@ -120,7 +120,13 @@ makeAIRequest('Can you help me write an email to my boss so I can get a raise?')
 |`pineconeConfig?.apiKey`|`string`|API key for Pinecone.|`string`|
 |`pineconeConfig?.indexName?`|`string`|Name of index in Pinecone for storing memories (defaults to `mind-palace`)|`string`|
 |`pineconeConfig?.embeddingModel?`|`string`|Pinecone has built-in embedding generation so you can choose which model to use here (defaults to `multilingual-e5-large`).|`string`|
-|`tags?`|`array[]`|Array of tags used for memory organization. A memory can be assigned multiple tags. Default: `[ 'database schema', 'response formatting', 'code style', 'institutional knowledge' ]`|`string[]`|
+|`memoryConfig?`|`object`|Configuration for memory storage including special properties and memory tags.|`MemoryConfig`|
+|`memoryConfig?.includeQuote?`|`boolean`|If true, a passage from the conversation containing the memory information will be included on the memory. This greatly increases vector memory size and creation time but can be useful for validating memories (Default: `false`).|`boolean`|
+|`memoryConfig?.includeSource?`|`boolean`|If true, a 1-5 word label identifying where the information orginated will be included on the memory object (Default: `false`).|`boolean`|
+|`memoryConfig?.includeTags?`|`boolean`|If true, each memory will include a list of tags from the predefined list. This must be set to true for the `memoryConfig.tags` property to be used (Default: `false`).|`boolean`|
+|`memoryConfig?.includeTerm?`|`boolean`|If true, memories will be marked as short- or long-term and short-term memories will become stale and be removed from recall results after a set period of time (Default: `true`).|`boolean`|
+|`memoryConfig?.includeCore?`|`boolean`|If true, memories will be marked as "core" memories if the information they contain is considered universally relevant. Core memories can be returned all together as part of the recall method (Default: `true`).|`boolean`|
+|`memoryConfig?.tags?`|`array[]`|Array of tags used for memory organization. A memory can be assigned multiple tags. Default: `[ 'database schema', 'response formatting', 'code style', 'institutional knowledge' ]`|`string[]`|
 
 #### Example
 ```ts
@@ -143,6 +149,8 @@ new MindPalace({
 |-|-|-|-|
 | `context` | `string` &#124; `string[]` &#124; `object` | This is the request that will be used to search for relevant memories. Its goal will be to find memories that provide relevant context and help better respond to the request. | See "Ingesting Message Formats" below for options |
 | `llm?` | `string` | If passing context in the Claude, GPT, or Gemini response format, you must include this parameter. | `Claude` &#124; `GPT` &#124; `Gemini` |
+| `customLLM?` | `ILLM` | Implement your own custom LLM class to use other LLM providers. | See Custom Classes section below |
+| `customVectorStore?` | `IVectorStore` | Implement your own custom Vector Store class to use other vector store providers. | See Custom Classes section below |
 | `queryVectorStoreDirectly?` | `boolean` | Bypass LLM vector query generation to query the vector store directly and return the top N memories. | `boolean` |
 | `includeAllCoreMemories?` | `boolean` | If `true`, all memories stored as "core" will be included in the return. | `boolean` |
 | `maxHoursShortTermLength?` | `number` | Defines the maximum number of hours that a memory stored as "short-term" will be considered relevant (Default: `72`). | `number` |

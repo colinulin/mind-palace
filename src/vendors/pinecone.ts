@@ -102,21 +102,33 @@ export default class MPPinecone extends VectorStore implements IVectorStore {
     ) {
         const index = this.getIndex(metadata?.userId)
 
-        const records = memories.map(memory => ({
-            id: randomUUID(),
-            metadata: {
+        const records = memories.map(memory => {
+            const memoryMetadata = {
                 quote: memory.quote,
                 summary: memory.summary,
                 tags: memory.tags,
                 source: memory.source,
                 term: memory.term,
                 isCore: memory.isCore,
-                userId: metadata?.userId || '',
-                groupId: metadata?.groupId || '',
+                userId: metadata?.userId,
+                groupId: metadata?.groupId,
                 updatedAtUnix: new Date().getTime(),
                 createdAtUnix: new Date().getTime(),
-            },
-        }))
+            }
+            return {
+                id: randomUUID(),
+                metadata: Object.keys(memoryMetadata)
+                    .reduce((acc, key) => {
+                        // remove undefined values from metadata because Pinecone doesn't like them
+                        const memoryKey = key as keyof typeof memoryMetadata
+                        if (memoryMetadata[memoryKey] !== undefined) {
+                            acc[key] = memoryMetadata[memoryKey] as string
+                        }
+
+                        return acc
+                    }, {} as MemoryMetadata),
+            }
+        })
 
         // Pinecone upsert has a batch limit of 100 records
         const batchSize = 100

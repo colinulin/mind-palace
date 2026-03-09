@@ -7,14 +7,22 @@ import * as Gemini from '@google/genai'
 export type LogLevel = 'off' | 'error' | 'info' | 'debug'
 export type LogType = 'info' | 'error' | 'warn' | 'debug'
 
-// Memory types
+// Memory
+export type MemoryConfig = {
+    includeQuote?: boolean
+    includeSource?: boolean
+    includeTags?: boolean
+    includeTerm?: boolean
+    includeCore?: boolean
+    tags?: string[]
+}
 export type Memory = {
-    quote: string
+    quote?: string | undefined
     summary: string
-    tags: string[]
-    source: string
-    term: 'long' | 'short'
-    isCore: boolean
+    tags?: string[] | undefined
+    source?: string | undefined
+    term?: 'long' | 'short'
+    isCore?: boolean | undefined
     userId: string | null
     groupId: string | null
 }
