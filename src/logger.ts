@@ -1,8 +1,7 @@
 /* eslint-disable no-console */
 import { LogLevel, LogType } from './types'
 
-const logLevel = (process.env.MIND_PALACE_LOG_LEVEL as LogLevel | undefined) || 'off'
-type LogParams = { 
+type LogParams = {
     message?: string
     label: string
     metadata?: unknown
@@ -12,6 +11,7 @@ type LogParams = {
  * Logger helper function
  */
 const logger = (type: LogType, params: LogParams) => {
+    const logLevel = (process.env.MIND_PALACE_LOG_LEVEL as LogLevel | undefined) || 'off'
     const { message, label, metadata } = params
     const formattedMetadata = JSON.stringify(metadata, null, 2)
     const logData = [ type, label.toUpperCase(), message, formattedMetadata ]

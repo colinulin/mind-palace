@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { api } from '../api/client'
+import { api } from '../services/client'
 import { ChatMessage } from '../types'
 
 let messageIdCounter = 0

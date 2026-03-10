@@ -50,19 +50,6 @@ const MessageBubble = (props: { message: ChatMessage }) => {
                 >
                     {message.content}
                 </Paragraph>
-
-                {message.memories?.length ? (
-                    <div style={{ marginTop: 8, borderTop: '1px solid #f0f0f0', paddingTop: 8 }}>
-                        <Text type="secondary" style={{ fontSize: 11 }}>Memories:</Text>
-                        {message.memories.map((m, i) => (
-                            <div key={i} style={{ fontSize: 12, padding: '2px 0 2px 8px' }}>
-                                <Text>- {m.summary}</Text>
-                                {m.source && <Tag style={{ marginLeft: 4, fontSize: 10 }}>{m.source}</Tag>}
-                                {m.term && <Tag style={{ fontSize: 10 }}>{m.term}-term</Tag>}
-                            </div>
-                        ))}
-                    </div>
-                ) : null}
             </Card>
         </div>
     )
