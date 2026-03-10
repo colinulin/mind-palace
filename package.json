@@ -15,8 +15,20 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
-    "build": "tsc -p .",
+    "build": "tsup",
     "lint": "eslint **/*.{js,ts}",
     "test": "npm run test:unit && npm run test:integration",
     "test:integration": "vitest run --dir test/integration",
