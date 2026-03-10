@@ -14,7 +14,7 @@ type LogParams = {
 const logger = (type: LogType, params: LogParams) => {
     const { message, label, metadata } = params
     const formattedMetadata = JSON.stringify(metadata, null, 2)
-    const logData = [ type, label.toUpperCase, message, formattedMetadata ]
+    const logData = [ type, label.toUpperCase(), message, formattedMetadata ]
 
     if (logLevel === 'off') {
         return

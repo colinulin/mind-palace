@@ -42,7 +42,7 @@ Search for any memories that would help inform a response to this conversation.`
                         queries: {
                             type: 'array',
                             description: 'The queries to use in the vector store search.',
-                            properties: {
+                            items: {
                                 type: 'string',
                                 description: 'Query string to use in the vector store search.',
                             },

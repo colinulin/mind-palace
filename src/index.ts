@@ -83,7 +83,7 @@ export default class MindPalace extends MPCore {
             this.VectorStore = this.Pinecone
         }
 
-        if (!('VectorStore' in this)) {
+        if (!this.VectorStore) {
             logger.error({ label: 'MindPalace', message: 'No Vector Store configuration provided.' })
         }
         
@@ -111,7 +111,7 @@ export default class MindPalace extends MPCore {
             this.LLM = this.Gemini
         }
 
-        if (!('LLM' in this)) {
+        if (!this.LLM) {
             logger.error({ label: 'MindPalace', message: 'No LLM configuration provided.' })
         }
     }
@@ -126,9 +126,12 @@ export default class MindPalace extends MPCore {
         limit?: number
     }) {
         const relevantMemories = await this.findRelevantMemories(params)
-        if (!relevantMemories) {
+        if (!relevantMemories?.length) {
             logger.warn({ label: 'MindPalace', message: 'No relevant memories found.' })
-            return
+            return {
+                message: '',
+                memories: [],
+            }
         }
 
         // format and optionally group memories by whether they're core
@@ -179,7 +182,7 @@ These were retrieved as potentially relevant to the current conversation:${forma
         }
     }
     
-    // Ingest a converstion and store it as memories
+    // Ingest a conversation and store it as memories
     // If groupId/userId is passed, new memories will include these values and 
     // similar memory search will include filters for these values
     async remember (params: IngestingMessage & {

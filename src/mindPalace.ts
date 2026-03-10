@@ -41,6 +41,9 @@ export default class MPCore {
             else if (params.llm === 'GPT') {
                 context = transformLLMMessagesToGenericBlocks({ messages: params.context, llm: params.llm })
             }
+            else if (params.llm === 'Gemini') {
+                context = transformLLMMessagesToGenericBlocks({ messages: params.context, llm: params.llm })
+            }
             else {
                 logger.error({ label: 'MindPalace', message: 'Invalid message format. Unable to process data.' })
                 return
@@ -150,10 +153,9 @@ export default class MPCore {
         
         // grab all of the last content blocks that are tool_use type
         const toolUseBlocks: ToolUseBlock[] = []
-        response.contentBlocks.reverse()
-        for (const block of response.contentBlocks) {
+        for (const block of [...response.contentBlocks].reverse()) {
             if (block.type !== 'tool_use') {
-                return
+                break
             }
 
             toolUseBlocks.push(block)

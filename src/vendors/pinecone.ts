@@ -192,11 +192,11 @@ export default class MPPinecone extends VectorStore implements IVectorStore {
             response.result.hits.forEach(result => {
                 const fields = result.fields as MemoryMetadata
 
-                // determine if short-term expiration has passed and omit memory if so (default: 72 hours
+                // determine if short-term expiration has passed and omit memory if so (default: 72 hours)
                 const shortTermExpiration = 
                     fields.updatedAtUnix + ((params.maxHoursShortTermLength || 72) * 1000 * 60 * 60)
 
-                if (fields.term === 'short' && fields.updatedAtUnix > shortTermExpiration) {
+                if (fields.term === 'short' && Date.now() > shortTermExpiration) {
                     return
                 }
 

@@ -273,7 +273,7 @@ export default class Weaviate extends VectorStore implements IVectorStore {
                 const shortTermExpiration = 
                     updateTime + ((params.maxHoursShortTermLength || 72) * 1000 * 60 * 60)
 
-                if (result.properties.term === 'short' && updateTime > shortTermExpiration) {
+                if (result.properties.term === 'short' && Date.now() > shortTermExpiration) {
                     return
                 }
 

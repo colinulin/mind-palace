@@ -120,7 +120,7 @@ export default class Claude extends LLM implements ILLM {
         // if any tools are passed, convert them to the correct format and attach to response creation config
         if (tools) {
             const claudeTools = this.createClaudeTools(tools)
-            inferenceParams.tools?.push(...claudeTools)
+            inferenceParams.tools = claudeTools
 
             if (toolChoice) {
                 inferenceParams.tool_choice = typeof toolChoice === 'object'

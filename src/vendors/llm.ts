@@ -249,8 +249,7 @@ export abstract class LLM {
         // OR we are out of retries
         // OR last tool_use included the stopTool, return response
         const newToolUseBlocks: ToolUseBlock[] = []
-        response.contentBlocks.reverse()
-        for (const block of response.contentBlocks) {
+        for (const block of [...response.contentBlocks].reverse()) {
             if (block.type !== 'tool_use') {
                 break
             }
