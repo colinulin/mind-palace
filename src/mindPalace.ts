@@ -153,7 +153,7 @@ export default class MPCore {
         
         // grab all of the last content blocks that are tool_use type
         const toolUseBlocks: ToolUseBlock[] = []
-        for (const block of [...response.contentBlocks].reverse()) {
+        for (const block of [ ...response.contentBlocks ].reverse()) {
             if (block.type !== 'tool_use') {
                 break
             }
