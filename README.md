@@ -261,6 +261,29 @@ Pinecone has the option to use an "integrated embedding" which just means it han
 
 **NOTE:** In the future, I'd like to add the ability to inject a custom embedding integration. If that's something you would use, post a request or open up a PR!
 
+## Custom Classes
+If the available custom configuration options aren't enough for you, you can override the entire LLM and Vector Store classes simply by passing the initialized class with the request. I've provided Typescript interfaces for both classes to make implementation easier. To get started, create your classes like this:
+```ts
+class CustomLLM implements ILLM {
+    // start writing here
+}
+
+class CustomVectorStore implements IVectorStore {
+    // start writing here
+}
+```
+
+Once your typecheck is passing, you've correctly implemented the custom class. Now just initialize it and pass it to the Mind Palace class initialization:
+```ts
+const customLLM = new CustomLLM()
+const customVectorStore = new CustomVectorStore()
+
+const mp = new MindPalace({
+    customLLM: customLLM,
+    customVectorStore: customVectorStore,
+})
+```
+
 ## Tracking Token Usage
 Anytime an LLM returns a response, token usage is logged to the `tokenUsage` property on the initialized Mind Palace class. You can access the token usage data directly or via the helper methods.
 
