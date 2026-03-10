@@ -1,0 +1,38 @@
+export type ChatMessageType = 'user' | 'assistant' | 'recall' | 'remember' | 'system'
+
+export type ChatMessage = {
+    id: string
+    type: ChatMessageType
+    content: string
+    timestamp: number
+    memories?: MemoryEntry[]
+}
+
+export type MemoryEntry = {
+    summary: string
+    source?: string
+    term?: string
+    isCore?: boolean
+    tags?: string[]
+    quote?: string
+}
+
+export type TokenUsageData = {
+    inferences: {
+        input?: number
+        output?: number
+        embeddingTokens?: number
+        model: string
+    }[]
+    modelTotals: Record<string, { input: number; output: number; embeddingTokens: number }>
+}
+
+export type LogEntry = {
+    timestamp: number
+    level: string
+    label: string
+    message: string
+    metadata?: unknown
+}
+
+export type SessionStatus = 'disconnected' | 'connected' | 'loading' | 'error'

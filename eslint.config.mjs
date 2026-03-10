@@ -4,7 +4,7 @@ import tslint from 'typescript-eslint'
 import stylistic from '@stylistic/eslint-plugin'
 
 export default [
-    { ignores: [ 'dist/*', 'test/*' ] },
+    { ignores: [ '**/dist/**', 'test/*' ] },
     eslint.configs.recommended,
     ...tslint.configs.recommended,
     {
