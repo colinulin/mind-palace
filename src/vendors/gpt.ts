@@ -145,6 +145,51 @@ export default class GPT extends LLM implements ILLM {
             return acc
         }, [])
     }
+
+    /**
+     * Convert GPT input items into generic content blocks
+     */
+    static createGenericContentBlocksFromInput (
+        input: ResponseCreateParamsNonStreaming['input'],
+    ) {
+        if (!input || typeof input === 'string') {
+            return input ? [{ type: 'text' as const, text: input }] : []
+        }
+
+        return input.reduce<ContentBlock[]>((acc, item) => {
+            if (item.type === 'message') {
+                if (typeof item.content === 'string') {
+                    acc.push({ type: 'text', text: item.content })
+                } else {
+                    item.content.forEach(c => {
+                        if (c.type === 'input_text' || c.type === 'output_text') {
+                            acc.push({ type: 'text', text: c.text })
+                        }
+                    })
+                }
+            }
+            if (item.type === 'function_call') {
+                acc.push({
+                    type: 'tool_use',
+                    input: JSON.parse(item.arguments),
+                    name: item.name,
+                    id: item.call_id,
+                })
+            }
+            if (item.type === 'function_call_output') {
+                acc.push({
+                    type: 'tool_result',
+                    id: item.call_id,
+                    content: typeof item.output === 'string'
+                        ? item.output
+                        : item.output
+                            .filter(c => c.type === 'input_text')
+                            .map(c => ({ type: 'text' as const, text: c.text })),
+                })
+            }
+            return acc
+        }, [])
+    }
     
     /**
      * Convert generic tools to GPT formatted tools

@@ -123,6 +123,45 @@ export default class Gemini extends LLM implements ILLM {
     }
 
     /**
+     * Convert Gemini input Content array into generic content blocks
+     */
+    static createGenericContentBlocksFromInput (contents: Content[]) {
+        return contents.flatMap<ContentBlock>(content => {
+            const parts = content.parts || []
+
+            return parts.reduce<ContentBlock[]>((acc, part) => {
+                if (part.thought && part.text) {
+                    acc.push({
+                        type: 'thinking',
+                        signature: part.thoughtSignature || '',
+                        thinking: part.text,
+                    })
+                } else if (part.functionCall) {
+                    if (part.functionCall.name && part.functionCall.id) {
+                        acc.push({
+                            type: 'tool_use',
+                            name: part.functionCall.name,
+                            id: part.functionCall.id,
+                            input: part.functionCall.args || {},
+                        })
+                    }
+                } else if (part.functionResponse) {
+                    if (part.functionResponse.id) {
+                        acc.push({
+                            type: 'tool_result',
+                            id: part.functionResponse.id,
+                            content: JSON.stringify(part.functionResponse.response),
+                        })
+                    }
+                } else if (part.text) {
+                    acc.push({ type: 'text', text: part.text })
+                }
+                return acc
+            }, [])
+        })
+    }
+
+    /**
      * Generate inference
      */
     async generateInference<T extends Record<string, unknown>, U extends ZodType<T>> (

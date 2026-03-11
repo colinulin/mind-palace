@@ -1,10 +1,10 @@
 import Anthropic from '@anthropic-ai/sdk'
-import OpenAI from 'openai'
 import Claude from './vendors/claude'
 import GPT from './vendors/gpt'
 import { ContentBlock } from './vendors/types'
-import { GenerateContentResponse } from '@google/genai'
+import { Content } from '@google/genai'
 import Gemini from './vendors/gemini'
+import { ResponseCreateParamsNonStreaming } from 'openai/resources/responses/responses.js'
 
 /**
  * Chunk an array into groups for processing
@@ -15,28 +15,28 @@ export const chunkArray = <T>(arr: T[], size: number): T[][] =>
     )
 
 /**
- * Transform LLM messages from GPT, Claude, or Gemini and convert to standardized generic content block
+ * Transform LLM input messages from GPT, Claude, or Gemini and convert to standardized generic content blocks
  */
 export const transformLLMMessagesToGenericBlocks = (params: {
-    messages: Anthropic.Beta.Messages.BetaMessage | Anthropic.Messages.Message
-    llm: 'Claude'
+    messages: Anthropic.Beta.Messages.BetaMessageParam[] | Anthropic.Messages.MessageParam[]
+    format: 'Claude'
 } | {
-    messages: OpenAI.Responses.Response
-    llm: 'GPT'
+    messages: ResponseCreateParamsNonStreaming['input']
+    format: 'GPT'
 } | {
-    messages: GenerateContentResponse
-    llm: 'Gemini'
+    messages: Content[]
+    format: 'Gemini'
 }): ContentBlock[] => {
-    const { messages, llm } = params
+    const { messages, format } = params
 
-    if (llm === 'GPT') {
-        return GPT.createGenericContentBlocks(messages)
+    if (format === 'GPT') {
+        return GPT.createGenericContentBlocksFromInput(messages)
     }
-    if (llm === 'Claude') {
-        return Claude.createGenericContentBlocks(messages)
+    if (format === 'Claude') {
+        return Claude.createGenericContentBlocksFromInput(messages)
     }
-    if (llm === 'Gemini') {
-        return Gemini.createGenericContentBlocks(messages)
+    if (format === 'Gemini') {
+        return Gemini.createGenericContentBlocksFromInput(messages)
     }
 
     return []

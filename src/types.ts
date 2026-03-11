@@ -31,14 +31,14 @@ export type Memory = {
 export type IngestingMessage = {
     context: string | string[] | ContentBlock[]
 } | {
-    context: Anthropic.Beta.Messages.BetaMessage | Anthropic.Messages.Message
-    llm: 'Claude'
+    context: Anthropic.Beta.Messages.BetaMessageParam[] | Anthropic.Messages.MessageParam[]
+    contextFormat: 'Claude'
 } | {
-    context: OpenAI.Responses.Response
-    llm: 'GPT'
+    context: OpenAI.Responses.ResponseCreateParamsNonStreaming['input']
+    contextFormat: 'GPT'
 } | {
-    context: Gemini.GenerateContentResponse
-    llm: 'Gemini'
+    context: Gemini.Content[]
+    contextFormat: 'Gemini'
 }
 
 // Metadata for vector store searching

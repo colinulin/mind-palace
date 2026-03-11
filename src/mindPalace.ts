@@ -34,20 +34,32 @@ export default class MPCore {
     // Extract memories from context
     protected async extractMemories (params: IngestingMessage, userId?: string) {
         let context: string | string[] | ContentBlock[]
-        if ('llm' in params) {
-            if (params.llm === 'Claude') {
-                context = transformLLMMessagesToGenericBlocks({ messages: params.context, llm: params.llm })
+        if ('contextFormat' in params) {
+            if (params.contextFormat === 'Claude') {
+                context = transformLLMMessagesToGenericBlocks({
+                    messages: params.context,
+                    format: params.contextFormat,
+                })
             }
-            else if (params.llm === 'GPT') {
-                context = transformLLMMessagesToGenericBlocks({ messages: params.context, llm: params.llm })
+            else if (params.contextFormat === 'GPT') {
+                context = transformLLMMessagesToGenericBlocks({
+                    messages: params.context,
+                    format: params.contextFormat, 
+                })
             }
-            else if (params.llm === 'Gemini') {
-                context = transformLLMMessagesToGenericBlocks({ messages: params.context, llm: params.llm })
+            else if (params.contextFormat === 'Gemini') {
+                context = transformLLMMessagesToGenericBlocks({
+                    messages: params.context,
+                    format: params.contextFormat,
+                })
             }
             else {
                 logger.error({ label: 'MindPalace', message: 'Invalid message format. Unable to process data.' })
                 return
             }
+
+            // remove messages that contain memory context
+            context = context.filter(c => !(c.type === 'text' && c.text.includes('<memory_context>')))
         } else {
             context = params.context
         }
@@ -117,15 +129,24 @@ export default class MPCore {
         }
 
         let context: string | string[] | ContentBlock[]
-        if ('llm' in params) {
-            if (params.llm === 'Claude') {
-                context = transformLLMMessagesToGenericBlocks({ messages: params.context, llm: params.llm })
+        if ('contextFormat' in params) {
+            if (params.contextFormat === 'Claude') {
+                context = transformLLMMessagesToGenericBlocks({ 
+                    messages: params.context, 
+                    format: params.contextFormat,
+                })
             }
-            else if (params.llm === 'GPT') {
-                context = transformLLMMessagesToGenericBlocks({ messages: params.context, llm: params.llm })
+            else if (params.contextFormat === 'GPT') {
+                context = transformLLMMessagesToGenericBlocks({
+                    messages: params.context,
+                    format: params.contextFormat, 
+                })
             }
-            else if (params.llm === 'Gemini') {
-                context = transformLLMMessagesToGenericBlocks({ messages: params.context, llm: params.llm })
+            else if (params.contextFormat === 'Gemini') {
+                context = transformLLMMessagesToGenericBlocks({
+                    messages: params.context, 
+                    format: params.contextFormat, 
+                })
             }
             else {
                 logger.error({ label: 'MindPalace', message: 'Invalid message format. Unable to process data.' })

@@ -74,7 +74,7 @@ export default class Claude extends LLM implements ILLM {
             if (b.type === 'tool_use') {
                 acc.push({
                     type: 'tool_use',
-                    input: typeof b.input === 'string' 
+                    input: typeof b.input === 'string'
                         ? JSON.parse(b.input || '{}')
                         : b.input as Record<string, unknown>,
                     name: b.name,
@@ -89,6 +89,54 @@ export default class Claude extends LLM implements ILLM {
             }
             return acc
         }, [])
+    }
+
+    /**
+     * Convert Claude input message params into generic content blocks
+     */
+    static createGenericContentBlocksFromInput (
+        messages: Anthropic.Beta.Messages.BetaMessageParam[] | Anthropic.Messages.MessageParam[],
+    ) {
+        return messages.flatMap<ContentBlock>(m => {
+            if (typeof m.content === 'string') {
+                return [{ type: 'text', text: m.content }]
+            }
+
+            return m.content.reduce<ContentBlock[]>((acc, b) => {
+                if (b.type === 'thinking') {
+                    acc.push({
+                        type: 'thinking',
+                        signature: b.signature,
+                        thinking: b.thinking,
+                    })
+                }
+                if (b.type === 'tool_use') {
+                    acc.push({
+                        type: 'tool_use',
+                        input: typeof b.input === 'string'
+                            ? JSON.parse(b.input || '{}')
+                            : b.input as Record<string, unknown>,
+                        name: b.name,
+                        id: b.id,
+                    })
+                }
+                if (b.type === 'tool_result') {
+                    acc.push({
+                        type: 'tool_result',
+                        id: b.tool_use_id,
+                        content: typeof b.content === 'string'
+                            ? b.content
+                            : (b.content || [])
+                                .filter((c): c is Anthropic.Messages.TextBlockParam => c.type === 'text')
+                                .map(c => ({ type: 'text' as const, text: c.text })),
+                    })
+                }
+                if (b.type === 'text') {
+                    acc.push({ type: 'text', text: b.text })
+                }
+                return acc
+            }, [])
+        })
     }
 
     /**
