@@ -6,10 +6,10 @@ export default defineConfig({
     plugins: [ react() ],
     root: path.resolve(__dirname, 'client'),
     server: {
-        port: 5174,
+        port: 61000,
         proxy: {
             '/api': {
-                target: 'http://localhost:3456',
+                target: 'http://localhost:62000',
                 changeOrigin: true,
             },
         },

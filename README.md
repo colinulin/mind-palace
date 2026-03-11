@@ -106,6 +106,34 @@ const makeAIRequest = async (userRequest: string) => {
 makeAIRequest('Can you help me draft this email to my boss so I can get a raise?')
 ```
 
+
+## Testing
+If you would like to test drive the Mind Palace, experiment with different configurations, or try out different prompts, I've created a simple UI with a chat interface and debugging features that can be run directly from this project. To get started with the chat UI, clone this repo and then follow these steps:
+
+1. In your shell, enter the following commands:
+```sh
+npm ci
+npm run dev
+``` 
+
+2. In your console you should see the frontend and backend services startup. When they're ready, you'll see a message that says: "Mind Palace dev server running on http://localhost:62000". Navigate to http://localhost:61000 in your browser.
+
+3. Fill out the configuration field with your preferred configuration and click "Initialize".
+```js
+/** Example */
+{
+  gptConfig: {
+    apiKey: 'MY-API-KEY'
+  },
+  weaviateConfig: {
+    apiKey: 'MY-WEAVIATE-API-KEY',
+    clusterUrl: 'WEAVIATE-CLUSTER-URL'
+  }
+}
+```
+
+4. Start chatting! The chat will just use whatever config you entered to generate messages.
+
 ## Configuration
 ### `new MindPalace()`
 |Parameter|Type|Description|Options|
