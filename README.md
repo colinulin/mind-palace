@@ -108,7 +108,7 @@ makeAIRequest('Can you help me draft this email to my boss so I can get a raise?
 
 
 ## Testing
-If you would like to test drive the Mind Palace, experiment with different configurations, or try out different prompts, I've created a simple UI with a chat interface and debugging features that can be run directly from this project. To get started with the chat UI, clone this repo and then follow these steps:
+If you would like to test drive the Mind Palace, experiment with different configurations, or try out different prompts, I've created a simple UI with a chat interface, debugging features, and some memory management that can be run directly from this project. To get started with the chat UI, clone this repo and then follow these steps:
 
 1. In your shell, enter the following commands:
 ```sh
