@@ -1,12 +1,13 @@
 import { useState, useCallback } from 'react'
 import { api } from '../services/client'
 import { SessionStatus, TokenUsageData, LogEntry } from '../types'
+import { usePersistedState } from './usePersistedState'
 
 export const useSession = () => {
     const [ status, setStatus ] = useState<SessionStatus>('disconnected')
-    const [ configText, setConfigText ] = useState('')
-    const [ userId, setUserId ] = useState('')
-    const [ groupId, setGroupId ] = useState('')
+    const [ configText, setConfigText ] = usePersistedState('mp:configText')
+    const [ recallConfigText, setRecallConfigText ] = usePersistedState('mp:recallConfigText')
+    const [ rememberConfigText, setRememberConfigText ] = usePersistedState('mp:rememberConfigText')
     const [ tokenUsage, setTokenUsage ] = useState<TokenUsageData | null>(null)
     const [ logs, setLogs ] = useState<LogEntry[]>([])
     const [ error, setError ] = useState<string | null>(null)
@@ -17,6 +18,12 @@ export const useSession = () => {
 
     const updateTokenUsage = useCallback((usage: unknown) => {
         if (usage) setTokenUsage(usage as TokenUsageData)
+    }, [])
+
+    const parseConfigText = useCallback((text: string) => {
+        const trimmed = text.trim()
+        if (!trimmed) return {}
+        return new Function(`return (${trimmed})`)()
     }, [])
 
     const initialize = useCallback(async () => {
@@ -58,10 +65,11 @@ export const useSession = () => {
         status,
         configText,
         setConfigText,
-        userId,
-        setUserId,
-        groupId,
-        setGroupId,
+        recallConfigText,
+        setRecallConfigText,
+        rememberConfigText,
+        setRememberConfigText,
+        parseConfigText,
         tokenUsage,
         updateTokenUsage,
         logs,

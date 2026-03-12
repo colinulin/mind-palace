@@ -34,13 +34,8 @@ export const api = {
     initialize: (config: unknown) =>
         post<{ success: boolean }>('/initialize', { config }),
 
-    recall: (params: {
+    recall: (params: Record<string, unknown> & {
         context: string
-        userId?: string
-        groupId?: string
-        queryVectorStoreDirectly?: boolean
-        includeAllCoreMemories?: boolean
-        limit?: number
     }) => post<{
         result: { message: string; memories: unknown[] }
         tokenUsage: unknown
@@ -56,10 +51,8 @@ export const api = {
         logs: unknown[]
     }>('/chat', params),
 
-    remember: (params: {
+    remember: (params: Record<string, unknown> & {
         context: string
-        userId?: string
-        groupId?: string
     }) => post<{
         memories: unknown[]
         tokenUsage: unknown
@@ -71,6 +64,18 @@ export const api = {
 
     getLogs: (since?: number) =>
         get<{ logs: unknown[] }>('/logs', since ? { since: String(since) } : undefined),
+
+    addMemory: (params: { memory: Record<string, unknown> }) =>
+        post<{ success: boolean }>('/memories/add', params),
+
+    resolveMemory: (params: { summary: string; userId?: string; groupId?: string }) =>
+        post<{ uuid: string; memory: unknown }>('/memories/resolve', params),
+
+    editMemory: (params: { memoryId: string; summary: string }) =>
+        post<{ success: boolean }>('/memories/edit', params),
+
+    deleteMemory: (params: { memoryId: string }) =>
+        post<{ success: boolean }>('/memories/delete', params),
 
     reset: () =>
         post<{ success: boolean }>('/reset', {}),

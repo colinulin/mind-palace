@@ -3,8 +3,15 @@ import { Empty, Spin } from 'antd'
 import { ChatMessage } from '../types'
 import MessageBubble from './MessageBubble'
 
-const ChatWindow = (props: { messages: ChatMessage[]; isLoading: boolean }) => {
-    const { messages, isLoading } = props
+const ChatWindow = (props: {
+    messages: ChatMessage[]
+    isLoading: boolean
+    onEditMemory: (memoryId: string, summary: string) => Promise<{ success: boolean }>
+    onDeleteMemory: (memoryId: string) => Promise<{ success: boolean }>
+    onUpdateMessage: (id: string, updates: Partial<ChatMessage>) => void
+    onRemoveMessage: (id: string) => void
+}) => {
+    const { messages, isLoading, onEditMemory, onDeleteMemory, onUpdateMessage, onRemoveMessage } = props
     const bottomRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
@@ -27,7 +34,14 @@ const ChatWindow = (props: { messages: ChatMessage[]; isLoading: boolean }) => {
             )}
 
             {messages.map(msg => (
-                <MessageBubble key={msg.id} message={msg} />
+                <MessageBubble
+                    key={msg.id}
+                    message={msg}
+                    onEditMemory={onEditMemory}
+                    onDeleteMemory={onDeleteMemory}
+                    onUpdateMessage={onUpdateMessage}
+                    onRemoveMessage={onRemoveMessage}
+                />
             ))}
 
             {isLoading && (

@@ -15,6 +15,16 @@ const CONFIG_PLACEHOLDER = `{
     },
 }`
 
+const RECALL_CONFIG_PLACEHOLDER = `{
+    userId: 'user-123',
+    includeAllCoreMemories: true,
+}`
+
+const REMEMBER_CONFIG_PLACEHOLDER = `{
+    userId: 'user-123',
+    groupId: 'group-456',
+}`
+
 const statusColors: Record<SessionStatus, string> = {
     disconnected: 'default',
     connected: 'success',
@@ -32,10 +42,10 @@ const statusLabels: Record<SessionStatus, string> = {
 const ConfigPanel = (props: {
     configText: string
     setConfigText: (text: string) => void
-    userId: string
-    setUserId: (id: string) => void
-    groupId: string
-    setGroupId: (id: string) => void
+    recallConfigText: string
+    setRecallConfigText: (text: string) => void
+    rememberConfigText: string
+    setRememberConfigText: (text: string) => void
     status: SessionStatus
     error: string | null
     onInitialize: () => void
@@ -44,22 +54,20 @@ const ConfigPanel = (props: {
     const {
         configText,
         setConfigText,
-        userId,
-        setUserId,
-        groupId,
-        setGroupId,
+        recallConfigText,
+        setRecallConfigText,
+        rememberConfigText,
+        setRememberConfigText,
         status,
         error,
         onInitialize,
         onReset,
     } = props
 
-    const isConnected = status === 'connected'
-
     return (
-        <Space direction="vertical" style={{ width: '100%' }} size="small">
+        <Space orientation="vertical" style={{ width: '100%' }} size="small">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Text strong>Configuration</Text>
+                <Text strong>MindPalace Config</Text>
                 <Tag color={statusColors[status]}>{statusLabels[status]}</Tag>
             </div>
 
@@ -68,24 +76,7 @@ const ConfigPanel = (props: {
                 onChange={e => setConfigText(e.target.value)}
                 placeholder={CONFIG_PLACEHOLDER}
                 autoSize={{ minRows: 6, maxRows: 14 }}
-                disabled={isConnected}
                 style={{ fontFamily: 'monospace', fontSize: 12 }}
-            />
-
-            <Input
-                value={userId}
-                onChange={e => setUserId(e.target.value)}
-                placeholder="userId (optional)"
-                size="small"
-                disabled={isConnected}
-            />
-
-            <Input
-                value={groupId}
-                onChange={e => setGroupId(e.target.value)}
-                placeholder="groupId (optional)"
-                size="small"
-                disabled={isConnected}
             />
 
             {error && (
@@ -99,18 +90,46 @@ const ConfigPanel = (props: {
                     type="primary"
                     onClick={onInitialize}
                     loading={status === 'loading'}
-                    disabled={isConnected || !configText.trim()}
+                    disabled={status === 'loading' || !configText.trim()}
                 >
                     Initialize
                 </Button>
                 <Button
                     onClick={onReset}
-                    disabled={!isConnected}
+                    disabled={status !== 'connected'}
                     danger
                 >
                     Reset
                 </Button>
             </Space>
+
+            <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 8, marginTop: 4 }}>
+                <Text strong style={{ fontSize: 12 }}>Recall Config</Text>
+                <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
+                    Options spread onto every recall() call (e.g. userId, groupId, limit)
+                </Text>
+                <Input.TextArea
+                    value={recallConfigText}
+                    onChange={e => setRecallConfigText(e.target.value)}
+                    placeholder={RECALL_CONFIG_PLACEHOLDER}
+                    autoSize={{ minRows: 2, maxRows: 8 }}
+                    style={{ fontFamily: 'monospace', fontSize: 12 }}
+                />
+            </div>
+
+            <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 8, marginTop: 4 }}>
+                <Text strong style={{ fontSize: 12 }}>Remember Config</Text>
+                <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
+                    Options spread onto every remember() call (e.g. userId, groupId)
+                </Text>
+                <Input.TextArea
+                    value={rememberConfigText}
+                    onChange={e => setRememberConfigText(e.target.value)}
+                    placeholder={REMEMBER_CONFIG_PLACEHOLDER}
+                    autoSize={{ minRows: 2, maxRows: 8 }}
+                    style={{ fontFamily: 'monospace', fontSize: 12 }}
+                />
+            </div>
         </Space>
     )
 }

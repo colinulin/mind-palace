@@ -6,15 +6,19 @@ export type ChatMessage = {
     content: string
     timestamp: number
     memories?: MemoryEntry[]
+    timings?: RequestTimings
 }
 
 export type MemoryEntry = {
+    uuid?: string
     summary: string
     source?: string
     term?: string
     isCore?: boolean
     tags?: string[]
     quote?: string
+    userId?: string | null
+    groupId?: string | null
 }
 
 export type TokenUsageData = {
@@ -36,3 +40,10 @@ export type LogEntry = {
 }
 
 export type SessionStatus = 'disconnected' | 'connected' | 'loading' | 'error'
+
+export type RequestTimings = {
+    recallMs?: number
+    chatMs?: number
+    rememberMs?: number
+    totalMs: number
+}

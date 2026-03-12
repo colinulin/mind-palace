@@ -196,7 +196,7 @@ export default class MPCore {
                 toolUseBlocks,
                 MindPalace: this,
                 continueGenerationAfterProcessing: true,
-                retryLimit: 3,
+                retryLimit: 0,
                 generationConfig,
                 metadata,
                 includeCoreMemories: !params.includeAllCoreMemories,

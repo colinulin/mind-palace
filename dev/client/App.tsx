@@ -1,8 +1,10 @@
-import { Collapse, Layout, Space, Typography } from 'antd'
+import { Button, Collapse, Layout, Space, Typography } from 'antd'
+import { ClearOutlined } from '@ant-design/icons'
 import ConfigPanel from './components/ConfigPanel'
 import ChatWindow from './components/ChatWindow'
 import ChatInput from './components/ChatInput'
 import RememberButton from './components/RememberButton'
+import AddMemoryButton from './components/AddMemoryButton'
 import TokenUsage from './components/TokenUsage'
 import LogViewer from './components/LogViewer'
 import { useSession } from './hooks/useSession'
@@ -14,8 +16,9 @@ const { Title } = Typography
 const App = () => {
     const session = useSession()
     const chat = useChat({
-        userId: session.userId,
-        groupId: session.groupId,
+        parseConfigText: session.parseConfigText,
+        recallConfigText: session.recallConfigText,
+        rememberConfigText: session.rememberConfigText,
         updateTokenUsage: session.updateTokenUsage,
         appendLogs: session.appendLogs,
     })
@@ -30,10 +33,10 @@ const App = () => {
                 <ConfigPanel
                     configText={session.configText}
                     setConfigText={session.setConfigText}
-                    userId={session.userId}
-                    setUserId={session.setUserId}
-                    groupId={session.groupId}
-                    setGroupId={session.setGroupId}
+                    recallConfigText={session.recallConfigText}
+                    setRecallConfigText={session.setRecallConfigText}
+                    rememberConfigText={session.rememberConfigText}
+                    setRememberConfigText={session.setRememberConfigText}
                     status={session.status}
                     error={session.error}
                     onInitialize={session.initialize}
@@ -81,6 +84,14 @@ const App = () => {
                 }}>
                     <Title level={5} style={{ margin: 0 }}>Chat</Title>
                     <Space>
+                        <Button
+                            icon={<ClearOutlined />}
+                            onClick={chat.clearChat}
+                            disabled={!chat.messages.length || chat.isLoading}
+                        >
+                            Reset Chat
+                        </Button>
+                        <AddMemoryButton disabled={!isReady} />
                         <RememberButton
                             onRemember={chat.rememberChat}
                             disabled={!isReady || !chat.messages.length}
@@ -89,7 +100,14 @@ const App = () => {
                     </Space>
                 </div>
 
-                <ChatWindow messages={chat.messages} isLoading={chat.isLoading} />
+                <ChatWindow
+                    messages={chat.messages}
+                    isLoading={chat.isLoading}
+                    onEditMemory={chat.editMemory}
+                    onDeleteMemory={chat.deleteMemory}
+                    onUpdateMessage={chat.updateMessage}
+                    onRemoveMessage={chat.removeMessage}
+                />
 
                 <div style={{ marginTop: 12 }}>
                     <ChatInput
