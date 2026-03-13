@@ -53,7 +53,7 @@ export type GenerateInferenceParams<U extends ZodType<Record<string, unknown>>> 
     tools?: Tool[]
     toolChoice?: ToolChoice
     maxTokens?: number
-    reasoningLevel?: 'minimal' | 'medium' | 'high' | 'off'
+    reasoningLevel?: 'low' | 'medium' | 'high' | 'off'
 }
 export type GenerateInferenceReturn<T extends Record<string, unknown>, U extends ZodType<T>> = {
     response: {

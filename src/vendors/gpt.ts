@@ -220,7 +220,7 @@ export default class GPT extends LLM implements ILLM {
         } = params
         const openaiResponseFormat = zodResponseFormat(responseSchema, 'format')
 
-        const effort = reasoningLevel === 'off' ? 'minimal' : reasoningLevel || 'minimal'
+        const effort = reasoningLevel === 'off' ? 'low' : reasoningLevel || 'low'
 
         const responseCreateConfig: ResponseCreateParamsNonStreaming & { model: string } = {
             model,

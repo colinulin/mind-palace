@@ -105,11 +105,11 @@ export default class MPPinecone extends VectorStore implements IVectorStore {
             }
             return {
                 id: randomUUID(),
-                metadata: Object.keys(memoryMetadata)
+                ...Object.keys(memoryMetadata)
                     .reduce((acc, key) => {
-                        // remove undefined values from metadata because Pinecone doesn't like them
+                        // remove undefined and null values from metadata because Pinecone doesn't like them
                         const memoryKey = key as keyof typeof memoryMetadata
-                        if (memoryMetadata[memoryKey] !== undefined) {
+                        if (memoryMetadata[memoryKey] !== undefined && memoryMetadata[memoryKey] !== null) {
                             acc[key] = memoryMetadata[memoryKey] as string
                         }
 
@@ -121,8 +121,8 @@ export default class MPPinecone extends VectorStore implements IVectorStore {
         // Pinecone upsert has a batch limit of 100 records
         const batchSize = 100
         for (let i = 0; i < records.length; i += batchSize) {
-            const batch = records.slice(i, i + batchSize)
-            const upsertResponse = await index.upsert({ records: batch })
+            const batch = records.slice(i, i + batchSize) as MemoryMetadata[]
+            const upsertResponse = await index.upsertRecords({ records: batch })
             logger.debug({ label: 'Pinecone', metadata: upsertResponse })
         }
 
@@ -204,7 +204,10 @@ export default class MPPinecone extends VectorStore implements IVectorStore {
             .slice(0, limit)
 
         logger.debug({ label: 'Pinecone', metadata: results })
-        logger.info({ label: 'Pinecone', message: `Search returned ${results.length} results.` })
+        logger.info({ 
+            label: 'Pinecone', 
+            message: `Search for ${queryStrings.join(', ')} returned ${results.length} results.`, 
+        })
 
         return sortedAndLimitedResults
     }

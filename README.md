@@ -308,11 +308,20 @@ Weaviate is the default vector database just because it's my personal preference
 To get started using Weaviate, [create a Weaviate account](https://console.weaviate.cloud/signin?next=%2F) and then create a new Cluster. You can create a Sandbox cluster for free or a paid cluster if you don't want it to be automatically deleted after 14 days. Once your cluster is created, you may need to wait a few hours, but eventually you'll be able to add an API Key and get your REST Endpoint to include when initializing the Mind Palace class.
 
 ### Pinecone
+#### Configuration
+You must create your index in Pinecone first before running Mind Palace. During creation, make sure to:
+1. Set the name to `mind-palace` (or your own custom name but then make sure you pass that name to `pineconeConfig.indexName` when you init MindPalace)
+2. Select an embedding model that has a vector type of `dense` and supports integrated embedding
+3. Set the "Field map" to `summary` (this is very important and if you miss this step the integrated embeddings won't work)
+
+#### Embeddings
 Pinecone has the option to use an "integrated embedding" which just means it handles embedding creation without you having to use a third-party. For this reason, if you're using Pinecone, you don't have to provide OpenAI API credentials. When creating your index in Pinecone, you can configure the embedding model of your choice. Make sure you choose an embedding model that is listed as an "integrated embedding" and that has a vector type of "dense." The only downside to Pinecone's current integration embedding feature is that none of the models support hybrid search. If you need hybrid search, use Weaviate and supply an OpenAI API Key.
 
+**NOTE:** In the future, I'd like to add the ability to inject a custom embedding integration. If that's something you would use, post a request or open up a PR!
+
+#### Namespacing
 Pinecone also uses something called "namespaces" to partition data within an index. If a `userId` is passed in the `remember()` call, the data will be namespaced with that `userId`. Using namespaces improves security (see: multi-tenancy) and improves query performance (queries are scoped to a specific namespace).
 
-**NOTE:** In the future, I'd like to add the ability to inject a custom embedding integration. If that's something you would use, post a request or open up a PR!
 
 ## Reranking
 Coming soon!

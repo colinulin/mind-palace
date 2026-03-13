@@ -200,7 +200,7 @@ export default class MPCore {
                 userId: metadata?.userId,
             }))?.[0]
 
-            if ((nearMemory?.score || 0) < 0.7) {
+            if ((nearMemory?.score || 0) < 0.3) {
                 return {
                     newMemory: m,
                 }
@@ -244,7 +244,7 @@ export default class MPCore {
                     staleMemoryIds.push(memoryGroup.nearMemory.uuid)
                 }
 
-                if (!structuredResponse) {
+                if (!structuredResponse || action === 'kept_as_is') {
                     return
                 }
 

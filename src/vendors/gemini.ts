@@ -5,7 +5,6 @@ import {
     FunctionDeclaration,
     GenerateContentResponse,
     GenerateContentParameters,
-    ThinkingLevel,
 } from '@google/genai'
 import { ZodType, toJSONSchema } from 'zod'
 import { ContentBlock, GenerateInferenceParams, GenericMessage, StopReason, Tool } from './types'
@@ -180,21 +179,13 @@ export default class Gemini extends LLM implements ILLM {
             tools,
             toolChoice,
             maxTokens,
-            reasoningLevel,
         } = params
-
-        const thinkingLevel = reasoningLevel === 'high'
-            ? ThinkingLevel.HIGH
-            : reasoningLevel === 'medium'
-                ? ThinkingLevel.MEDIUM
-                : ThinkingLevel.MINIMAL
 
         const config: Parameters<typeof this.geminiClient.models.generateContent>[0]['config'] = {
             systemInstruction: systemMessage,
             responseMimeType: 'application/json',
             responseJsonSchema: toJSONSchema(responseSchema),
             maxOutputTokens: maxTokens || 10000,
-            thinkingConfig: reasoningLevel === 'off' ? { thinkingBudget: 0 } : { thinkingLevel },
         }
 
         // if any tools are passed, convert them and attach to config
