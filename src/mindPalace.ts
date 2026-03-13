@@ -90,134 +90,89 @@ export default class MPCore {
         includeAllCoreMemories?: boolean
         maxHoursShortTermLength?: number
     }) {
-        // if querying vector store directly, use search method and return early
-        if (
-            params.queryVectorStoreDirectly 
-            && (
-                typeof params.context === 'string' 
-                || (
-                    params.context instanceof Array
-                    && typeof params.context[0] === 'string'
-                )
-            )
-        ) {
-            const query = typeof params.context === 'string' ? [ params.context ] : params.context as string[] 
+        let memorySearchQueries: string[]
 
-            // search vector store directly
-            const memorySearchPromise = this.searchMemories({
-                query,
-                limit: params.limit,
-                userId: params.userId,
-                groupId: params.groupId,
-                includeCoreMemories: !params.includeAllCoreMemories,
-                maxHoursShortTermLength: params.maxHoursShortTermLength,
-            })
-
-            // if including all core memories, do a separate core memory fetch
-            const coreMemoryPromise = params.includeAllCoreMemories
-                ? this.fetchCoreMemories({ userId: params.userId })
-                : undefined
-
-            const allMemories = await Promise.all([
-                memorySearchPromise,
-                coreMemoryPromise,
-            ])
-
-            const memories = allMemories.flat().filter(m => !!m)
-
-            return memories?.map(m => 'memory' in m ? m.memory : m) || []
-        }
-
-        let context: string | string[] | ContentBlock[]
-        if ('contextFormat' in params) {
-            if (params.contextFormat === 'Claude') {
-                context = transformLLMMessagesToGenericBlocks({ 
-                    messages: params.context, 
-                    format: params.contextFormat,
-                })
-            }
-            else if (params.contextFormat === 'GPT') {
-                context = transformLLMMessagesToGenericBlocks({
-                    messages: params.context,
-                    format: params.contextFormat, 
-                })
-            }
-            else if (params.contextFormat === 'Gemini') {
-                context = transformLLMMessagesToGenericBlocks({
-                    messages: params.context, 
-                    format: params.contextFormat, 
-                })
-            }
-            else {
-                logger.error({ label: 'MindPalace', message: 'Invalid message format. Unable to process data.' })
-                return
-            }
-        } else {
-            context = params.context
-        }
-
-        logger.info({ label: 'MindPalace', message: 'Searching for relevant memories.' })
-
-        const { messages, systemMessage, tools } = prompts.relevantMemorySearch(context)
-        const responseSchema = responseSchemas.relevantMemoryIds()
-        const generationConfig = {
-            responseSchema,
-            messages,
-            systemMessage,
-            tools,
-        }
-        const { response, structuredResponse, tokenUsage, model } = await this.LLM.generateInference(generationConfig)
-        this.tokenUsage.trackInference({
-            input: tokenUsage.input,
-            output: tokenUsage.output,
-        }, model)
-        
-        // grab all of the last content blocks that are tool_use type
-        const toolUseBlocks: ToolUseBlock[] = []
-        for (const block of [ ...response.contentBlocks ].reverse()) {
-            if (block.type !== 'tool_use') {
-                break
+        // if not querying vector store directly, use LLM to generate query strings
+        if (!params.queryVectorStoreDirectly) {
+            let context: string | string[] | ContentBlock[]
+            if ('contextFormat' in params) {
+                if (params.contextFormat === 'Claude') {
+                    context = transformLLMMessagesToGenericBlocks({ 
+                        messages: params.context, 
+                        format: params.contextFormat,
+                    })
+                }
+                else if (params.contextFormat === 'GPT') {
+                    context = transformLLMMessagesToGenericBlocks({
+                        messages: params.context,
+                        format: params.contextFormat, 
+                    })
+                }
+                else if (params.contextFormat === 'Gemini') {
+                    context = transformLLMMessagesToGenericBlocks({
+                        messages: params.context, 
+                        format: params.contextFormat, 
+                    })
+                }
+                else {
+                    logger.error({ label: 'MindPalace', message: 'Invalid message format. Unable to process data.' })
+                    return
+                }
+            } else {
+                context = params.context
             }
 
-            toolUseBlocks.push(block)
-        }
+            logger.info({ label: 'MindPalace', message: 'Searching for relevant memories.' })
 
-        // process tool use blocks (if present) to generate a list of relevant memory IDs
-        let memoryIds: string[]
-        if (toolUseBlocks.length) {
-            const metadata: VectorMetadata = {}
-            if (params.groupId) {
-                metadata.groupId = String(params.groupId)
+            const { messages, systemMessage } = prompts.relevantMemorySearch(context)
+            const responseSchema = responseSchemas.memorySearchQueries()
+            const generationConfig = {
+                responseSchema,
+                messages,
+                systemMessage,
             }
-            if (params.userId) {
-                metadata.userId = String(params.userId)
-            }
-            const toolUseResponse = await this.LLM.processToolUsage({
-                toolUseBlocks,
-                MindPalace: this,
-                continueGenerationAfterProcessing: true,
-                retryLimit: 0,
-                generationConfig,
-                metadata,
-                includeCoreMemories: !params.includeAllCoreMemories,
-                maxHoursShortTermLength: params.maxHoursShortTermLength,
-            })
+            const { structuredResponse, tokenUsage, model } = await this.LLM.generateInference(generationConfig)
             this.tokenUsage.trackInference({
-                input: toolUseResponse.tokenUsage.input,
-                output: toolUseResponse.tokenUsage.output,
-            }, toolUseResponse.model)
-            memoryIds = toolUseResponse.structuredResponse?.memoryIds || []
-
-            logger.info({ label: 'MindPalace', message: 'Completed tool use block processing.' })
-        } else {
-            memoryIds = structuredResponse?.memoryIds || []
+                input: tokenUsage.input,
+                output: tokenUsage.output,
+            }, model)
+            
+            memorySearchQueries = structuredResponse?.queries || []
         }
+        // if querying vector store directly, use passed in string(s) as queries
+        else {
+            memorySearchQueries = typeof params.context === 'string' ? [ params.context ] : params.context as string[]
+        }
+        
+        // query vector store
+        const memorySearchPromise = this.searchMemories({
+            query: memorySearchQueries,
+            limit: params.limit,
+            userId: params.userId,
+            groupId: params.groupId,
+            includeCoreMemories: !params.includeAllCoreMemories,
+            maxHoursShortTermLength: params.maxHoursShortTermLength,
+        })
 
-        // get memories from vector store by ID
-        const memories = await this.VectorStore.fetchMemoriesById(
-            memoryIds, 
-            params.userId ? String(params.userId) : undefined,
-        )
+        // if including all core memories, do a separate core memory fetch
+        const coreMemoryPromise = params.includeAllCoreMemories
+            ? this.fetchCoreMemories({ userId: params.userId })
+            : undefined
+        const allMemories = await Promise.all([
+            memorySearchPromise,
+            coreMemoryPromise,
+        ])
+        const memories = allMemories.flat().reduce((acc, m) => {
+            if (!m) {
+                return acc
+            }
+
+            acc.push('memory' in m ? m.memory : m)
+            
+            return acc
+        }, new Array<Memory>())
+
+        // return memories
         logger.debug({ label: 'MindPalace', metadata: memories })
         logger.info({ label: 'MindPalace', message: 'Fetched relevant memories.' })
 

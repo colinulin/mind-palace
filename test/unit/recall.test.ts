@@ -21,7 +21,7 @@ describe('recall', () => {
     })
 
     it('should recall memories with Claude + Pinecone using Claude-formatted context', async () => {
-        // recall flow: generateInference → tool_use (search_memories) → processToolUsage
+        // recall flow: generateInference → tool_use (search_memories) →
         //   → VectorStore.searchMemories → generateInference again → memoryIds → fetchMemoriesById
 
         // 1st LLM call: returns tool_use block requesting memory search

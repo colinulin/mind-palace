@@ -4,6 +4,8 @@ import {
     Content,
     FunctionDeclaration,
     GenerateContentResponse,
+    GenerateContentParameters,
+    ThinkingLevel,
 } from '@google/genai'
 import { ZodType, toJSONSchema } from 'zod'
 import { ContentBlock, GenerateInferenceParams, GenericMessage, StopReason, Tool } from './types'
@@ -28,6 +30,12 @@ export default class Gemini extends LLM implements ILLM {
 
         this.geminiClient = new GoogleGenAI({
             apiKey,
+            httpOptions: {
+                timeout: 15 * 1000, // 15 seconds
+                retryOptions: {
+                    attempts: 3,
+                },
+            },
         })
     }
 
@@ -174,6 +182,7 @@ export default class Gemini extends LLM implements ILLM {
             responseSchema,
             tools,
             toolChoice,
+            maxTokens,
         } = params
         const model = customModel || this.generativeModel
 
@@ -181,6 +190,8 @@ export default class Gemini extends LLM implements ILLM {
             systemInstruction: systemMessage,
             responseMimeType: 'application/json',
             responseJsonSchema: toJSONSchema(responseSchema),
+            maxOutputTokens: maxTokens || 1000,
+            thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
         }
 
         // if any tools are passed, convert them and attach to config
@@ -211,9 +222,12 @@ export default class Gemini extends LLM implements ILLM {
                     },
                 }
             }
+
+            // if tools are included, remove response schema to greatly increase generation time
+            delete config.responseJsonSchema
         }
 
-        const generateContentParams = {
+        const generateContentParams: GenerateContentParameters = {
             model,
             contents: this.createGeminiContents(messages),
             config,

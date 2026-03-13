@@ -15,7 +15,7 @@ import logger from '../logger'
  */
 export default class GPT extends LLM implements ILLM {
     embeddingModel = 'text-embedding-3-large'
-    generativeModel = 'gpt-5-mini'
+    generativeModel = 'gpt-5-nano'
     private gptClient: OpenAI
 
     /**
@@ -33,8 +33,8 @@ export default class GPT extends LLM implements ILLM {
 
         this.gptClient = new OpenAI({
             apiKey: config.apiKey,
-            timeout: 300 * 1000, // 5 minutes
-            maxRetries: 5,
+            timeout: 15 * 1000, // 15 seconds
+            maxRetries: 3,
         })
     }
 
@@ -217,6 +217,7 @@ export default class GPT extends LLM implements ILLM {
             responseSchema,
             tools,
             toolChoice,
+            maxTokens,
         } = params
         const model = customModel || this.generativeModel
         const openaiResponseFormat = zodResponseFormat(responseSchema, 'format')
@@ -225,7 +226,9 @@ export default class GPT extends LLM implements ILLM {
             model,
             input: this.createGPTMessages(messages),
             instructions: systemMessage,
+            max_output_tokens: maxTokens || 1000,
             tools: [],
+            reasoning: { effort: 'minimal', summary: null },
             text: {
                 format: {
                     ...openaiResponseFormat.json_schema as ResponseFormatTextJSONSchemaConfig,
@@ -246,6 +249,9 @@ export default class GPT extends LLM implements ILLM {
                     : typeof toolChoice === 'object'
                         ? { type: 'function', name: toolChoice.name }
                         : 'auto'
+
+            // if tools are included, remove response schema to greatly increase generation time
+            delete responseCreateConfig.text
         }
 
         logger.info({ label: 'GPT', metadata: responseCreateConfig })

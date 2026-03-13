@@ -105,6 +105,11 @@ export default class Weaviate extends VectorStore implements IVectorStore {
                 headers: this.openaiApiKey ? {
                     'X-Openai-Api-Key': this.openaiApiKey,
                 } : {},
+                skipInitChecks: true,
+                timeout: {
+                    init: 1000,
+                    query: 3000,
+                },
             },
         )
         this.weaviateClient = weaviateClient

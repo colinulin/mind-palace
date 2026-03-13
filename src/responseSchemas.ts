@@ -53,6 +53,15 @@ const memory = (memoryConfig: MemoryConfig) => {
 }
 
 /**
+ * Response schema for creating vector store queries to find relevant memories
+ */
+const memorySearchQueries = () => z.object({
+    queries: z.array(z.string().meta({
+        description: 'Query string to use in the vector store search.',
+    })).max(6),
+})
+
+/**
  * Response schema for finding memories relevant to a given context
  */
 const relevantMemoryIds = () => z.object({
@@ -90,4 +99,5 @@ export default {
     extractedMemories,
     mergedMemories,
     relevantMemoryIds,
+    memorySearchQueries,
 }

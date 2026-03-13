@@ -92,14 +92,7 @@ const ConfigPanel = (props: {
                     loading={status === 'loading'}
                     disabled={status === 'loading' || !configText.trim()}
                 >
-                    Initialize
-                </Button>
-                <Button
-                    onClick={onReset}
-                    disabled={status !== 'connected'}
-                    danger
-                >
-                    Reset
+                    {status !== 'connected' ? 'Initialize' : 'Re-Initialize'}
                 </Button>
             </Space>
 

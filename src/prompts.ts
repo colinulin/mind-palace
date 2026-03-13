@@ -7,49 +7,31 @@ import { ContentBlock, userRole } from './vendors/types'
  */
 const relevantMemorySearch = (context: ContentBlock[] | string | string[]) => {
     return {
-        systemMessage: `You are a memory retrieval agent. Your job is to search a vector store of memories to find context that will help respond to a conversation.
+        systemMessage: `You are a memory retrieval agent. Your job is to create queries for a vector store of memories to find context that will help respond to a conversation.
 
 Memories are short informational snippets extracted from past conversations including user preferences, personal details, project context, prior decisions, and institutional knowledge.
 
-## How to search effectively
+## How to write queries
 - Phrase queries as concise topic descriptions or statements, not questions (e.g. "preferred frontend framework" not "what framework do they like?")
-- Think about how the information was likely stored, and match that phrasing
-- Search for the most specific relevant topics first
-- If the conversation touches multiple distinct topics, search for each separately
-- Even for seemingly simple requests, consider whether the user might have stored preferences about tone, format, or conventions that would improve the response
+- If the conversation touches multiple distinct topics, write separate queries for each one
+- NEVER generate queries that would return overlapping results. Each query must target a different piece of information.
+- Fewer, precise queries are better than many similar ones. For a simple topic, 1-2 queries is enough.
 
-## How to select memories
-- Search results include a memory ID and content for each match
-- After searching, review the results and select only the memories that are genuinely relevant to the current conversation
-- Return the IDs of relevant memories in your response
-- If no memories are relevant either because search returned nothing useful or because the conversation truly needs no additional context (e.g. a simple "thanks" or "goodbye") return an empty array
-- Err on the side of including a memory if it could plausibly improve the response, but do not include memories that are only superficially related`,
+## Examples
+Conversation: "what is my favorite color?"
+Queries: ["favorite color"]
+
+Conversation: "what's my address?"
+Queries: ["home address"]
+
+Conversation: "Can you draft an email to my manager about the project deadline?"
+Queries: ["manager name and email", "current project details and deadline", "email tone and format preferences"]`,
         messages: [
             {
                 role: userRole,
                 content: `<conversation>${JSON.stringify(context)}</conversation>
                 
-Search for any memories that would help inform a response to this conversation.`,
-            },
-        ],
-        tools: [
-            {
-                name: 'search_memories',
-                description: 'Search the memory vector store. Returns an array of matching memories, or an empty array if none are found.',
-                parameters: {
-                    type: 'object' as const,
-                    properties: {
-                        queries: {
-                            type: 'array',
-                            description: 'The queries to use in the vector store search.',
-                            items: {
-                                type: 'string',
-                                description: 'Query string to use in the vector store search.',
-                            },
-                        },
-                    },
-                    required: [ 'queries' ],
-                },
+Create vector store queries to find memories that would help inform a response to this conversation.`,
             },
         ],
     }

@@ -300,7 +300,12 @@ To get started using Weaviate, [create a Weaviate account](https://console.weavi
 ### Pinecone
 Pinecone has the option to use an "integrated embedding" which just means it handles embedding creation without you having to use a third-party. For this reason, if you're using Pinecone, you don't have to provide OpenAI API credentials. When creating your index in Pinecone, you can configure the embedding model of your choice. Make sure you choose an embedding model that is listed as an "integrated embedding" and that has a vector type of "dense." The only downside to Pinecone's current integration embedding feature is that none of the models support hybrid search. If you need hybrid search, use Weaviate and supply an OpenAI API Key.
 
+Pinecone also uses something called "namespaces" to partition data within an index. If a `userId` is passed in the `remember()` call, the data will be namespaced with that `userId`. Using namespaces improves security (see: multi-tenancy) and improves query performance (queries are scoped to a specific namespace).
+
 **NOTE:** In the future, I'd like to add the ability to inject a custom embedding integration. If that's something you would use, post a request or open up a PR!
+
+## Reranking
+Coming soon!
 
 ## Custom Classes
 If the available custom configuration options aren't enough for you, you can override the entire LLM and Vector Store classes simply by passing the initialized class with the request. I've provided Typescript interfaces and parent classes for both things to make implementation easier. To get started, create your classes like this:
@@ -366,7 +371,7 @@ If you JUST created an account and added credit to access the Gemini/OpenAI/Clau
 #### [Anthropic Claude Status](https://status.claude.com/)
 
 ## Future Updates:
-- [ ] Make it possible for pinecone to also search in non-namespaced areas when passing a userId
+- [ ] Pinecone to also search in non-namespaced areas when passing a userId
 - [ ] Add CONTRIBUTION.md
 - [ ] Add reranker support
 - [ ] Add prompt customization support

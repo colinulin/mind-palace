@@ -23,6 +23,8 @@ export default class Claude extends LLM implements ILLM {
 
         this.claudeClient = new Anthropic({
             apiKey,
+            timeout: 15 * 1000, // 15 seconds
+            maxRetries: 3,
         })
     }
 
@@ -152,6 +154,7 @@ export default class Claude extends LLM implements ILLM {
             responseSchema,
             tools,
             toolChoice,
+            maxTokens,
         } = params
         const model = customModel || this.generativeModel
 
@@ -159,7 +162,7 @@ export default class Claude extends LLM implements ILLM {
         const inferenceParams: Anthropic.Beta.MessageCreateParamsNonStreaming = {
             model,
             messages: this.createClaudeMessages(messages),
-            max_tokens: 5000,
+            max_tokens: maxTokens || 1000,
             system: systemMessage,
             betas: [ 'structured-outputs-2025-11-13' ],
             output_format: betaZodOutputFormat(responseSchema),
@@ -182,6 +185,9 @@ export default class Claude extends LLM implements ILLM {
                         disable_parallel_tool_use: true,
                     }
             }
+
+            // if tools are included, remove response schema to greatly increase generation time
+            delete inferenceParams.output_format
         }
 
         logger.info({ label: 'Claude', metadata: inferenceParams })

@@ -186,11 +186,19 @@ export abstract class LLM {
                     includeNullWithFilter: true,
                     maxHoursShortTermLength: maxHoursShortTermLength || 72,
                 }) || []
-                const memoryResults = dataObjects?.map(m => ({
-                    summary: m.memory.summary,
-                    source: m.memory.source,
-                    uuid: m.uuid,
-                }))
+                const memoryResults = dataObjects?.reduce((acc, m) => {
+                    if (m.score < 0.7) {
+                        return acc
+                    }
+
+                    acc.push({
+                        summary: m.memory.summary,
+                        source: m.memory.source,
+                        uuid: m.uuid,
+                    })
+
+                    return acc
+                }, new Array<{ summary: string; source?: string; uuid: string}>())
 
                 return {
                     response: memoryResults,
