@@ -1,5 +1,5 @@
 # Mind Palace
-![npm version](https://img.shields.io/npm/v/mind-palace.svg)(https://www.npmjs.com/package/mind-palace)
+[![npm version](https://img.shields.io/npm/v/mind-palace.svg)](https://www.npmjs.com/package/mind-palace)
 
 Mind Palace is a drop-in memory storage for LLM-enabled features with smart storage, maintenance, and retrieval. It is strongly typed, easy to implement, and has built-in support for major LLMs and Vector Stores. Upgrade your AI chat or other generative AI feature with persistent and scaleable memory. How does it work?
 1. After a chat session or inference generation, call `mp.remember()` to mine the messages for important information. This is like saying to the LLM, "Hey! Remember this information!"
