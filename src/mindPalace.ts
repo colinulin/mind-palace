@@ -1,4 +1,4 @@
-import { ContentBlock, ToolUseBlock } from './vendors/types'
+import { ContentBlock } from './vendors/types'
 import Claude from './vendors/claude'
 import GPT from './vendors/gpt'
 import responseSchemas from './responseSchemas'

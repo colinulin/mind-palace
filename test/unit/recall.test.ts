@@ -5,13 +5,9 @@ import {
     mockResponsesCreate,
     mockBetaMessagesCreate,
     mockHybridQuery,
-    mockFetchObjects,
     mockPineconeSearchRecords,
-    mockPineconeFetch,
     makeGptResponse,
-    makeGptToolUseResponse,
     makeClaudeResponse,
-    makeClaudeToolUseResponse,
 } from './mocks'
 import MindPalace from '../../src/index'
 
@@ -21,16 +17,12 @@ describe('recall', () => {
     })
 
     it('should recall memories with Claude + Pinecone using Claude-formatted context', async () => {
-        // recall flow: generateInference → tool_use (search_memories) →
-        //   → VectorStore.searchMemories → generateInference again → memoryIds → fetchMemoriesById
+        // recall flow: generateInference (memorySearchQueries) →
+        //   → VectorStore.searchMemories → return formatted memories
 
-        // 1st LLM call: returns tool_use block requesting memory search
+        // LLM call: returns structured search queries
         mockBetaMessagesCreate.mockResolvedValueOnce(
-            makeClaudeToolUseResponse([{
-                name: 'search_memories',
-                id: 'tool-call-1',
-                input: { queries: ['favorite programming language', 'coding preferences'] },
-            }]),
+            makeClaudeResponse(JSON.stringify({ queries: ['favorite programming language', 'coding preferences'] })),
         )
 
         // VectorStore.searchMemories returns matching memories from Pinecone
@@ -91,37 +83,6 @@ describe('recall', () => {
                 },
             })
 
-        // 2nd LLM call (after tool results): returns structured memoryIds
-        mockBetaMessagesCreate.mockResolvedValueOnce(
-            makeClaudeResponse(JSON.stringify({ memoryIds: ['mem-uuid-1', 'mem-uuid-2'] })),
-        )
-
-        // fetchMemoriesById returns the actual memory objects
-        mockPineconeFetch.mockResolvedValueOnce({
-            records: {
-                'mem-uuid-1': {
-                    metadata: {
-                        summary: 'User loves TypeScript',
-                        source: 'chat',
-                        term: 'long',
-                        isCore: false,
-                        userId: null,
-                        groupId: null,
-                    },
-                },
-                'mem-uuid-2': {
-                    metadata: {
-                        summary: 'User prefers functional programming',
-                        source: 'chat',
-                        term: 'long',
-                        isCore: true,
-                        userId: null,
-                        groupId: null,
-                    },
-                },
-            },
-        })
-
         const mp = new MindPalace({
             llm: 'Claude',
             vectorStore: 'Pinecone',
@@ -134,8 +95,8 @@ describe('recall', () => {
             {
                 role: 'user' as const,
                 content: [{
-                    type: 'text' as const, 
-                    text: 'What programming language should I use for my next project?' 
+                    type: 'text' as const,
+                    text: 'What programming language should I use for my next project?'
                 }]
             },
         ]
@@ -145,16 +106,11 @@ describe('recall', () => {
             contextFormat: 'Claude',
         })
 
-        // Should have called Claude LLM twice: initial query + after tool results
-        expect(mockBetaMessagesCreate).toHaveBeenCalledTimes(2)
+        // Should have called Claude LLM once to generate search queries
+        expect(mockBetaMessagesCreate).toHaveBeenCalledTimes(1)
 
-        // Should have searched Pinecone for memories via tool use
+        // Should have searched Pinecone for memories
         expect(mockPineconeSearchRecords).toHaveBeenCalled()
-
-        // Should have fetched memories by ID
-        expect(mockPineconeFetch).toHaveBeenCalledWith({
-            ids: ['mem-uuid-1', 'mem-uuid-2'],
-        })
 
         // Should return formatted message containing memories
         expect(result.message).toContain('<memory_context>')
@@ -169,13 +125,9 @@ describe('recall', () => {
     })
 
     it('should recall memories with GPT + Weaviate using GPT-formatted context', async () => {
-        // 1st LLM call: returns tool_use block requesting memory search
+        // LLM call: returns structured search queries
         mockResponsesCreate.mockResolvedValueOnce(
-            makeGptToolUseResponse([{
-                name: 'search_memories',
-                id: 'tool-call-gpt-1',
-                arguments: JSON.stringify({ queries: ['user work details', 'employer info'] }),
-            }]),
+            makeGptResponse(JSON.stringify({ queries: ['user work details', 'employer info'] })),
         )
 
         // VectorStore.searchMemories returns matching memories from Weaviate
@@ -217,30 +169,6 @@ describe('recall', () => {
                 ],
             })
 
-        // 2nd LLM call (after tool results): returns structured memoryIds
-        mockResponsesCreate.mockResolvedValueOnce(
-            makeGptResponse(JSON.stringify({ memoryIds: ['wv-mem-1'] })),
-        )
-
-        // fetchMemoriesById via Weaviate fetchObjects
-        mockFetchObjects.mockResolvedValueOnce({
-            objects: [
-                {
-                    uuid: 'wv-mem-1',
-                    properties: {
-                        summary: 'User works at Acme Corp as a senior engineer',
-                        source: 'onboarding',
-                        term: 'long',
-                        isCore: true,
-                    },
-                    metadata: {
-                        creationTime: new Date(),
-                        updateTime: new Date(),
-                    },
-                },
-            ],
-        })
-
         const mp = new MindPalace({
             llm: 'GPT',
             vectorStore: 'Weaviate',
@@ -261,14 +189,11 @@ describe('recall', () => {
             contextFormat: 'GPT',
         })
 
-        // Should have called GPT LLM twice: initial query + after tool results
-        expect(mockResponsesCreate).toHaveBeenCalledTimes(2)
+        // Should have called GPT LLM once to generate search queries
+        expect(mockResponsesCreate).toHaveBeenCalledTimes(1)
 
         // Should have searched Weaviate via hybrid query
         expect(mockHybridQuery).toHaveBeenCalled()
-
-        // Should have fetched memories by ID via fetchObjects
-        expect(mockFetchObjects).toHaveBeenCalled()
 
         // Should return formatted message containing the memory
         expect(result.message).toContain('<memory_context>')

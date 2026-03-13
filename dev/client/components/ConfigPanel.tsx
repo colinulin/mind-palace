@@ -61,7 +61,6 @@ const ConfigPanel = (props: {
         status,
         error,
         onInitialize,
-        onReset,
     } = props
 
     return (
