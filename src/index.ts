@@ -24,16 +24,13 @@ export default class MindPalace extends MPCore {
         customVectorStore?: IVectorStore
         claudeConfig?: {
             apiKey: string
-            generativeModel?: string
         }
         gptConfig?: {
             apiKey: string
             embeddingModel?: string
-            generativeModel?: string
         }
         geminiConfig?: {
             apiKey: string
-            generativeModel?: string
         }
         weaviateConfig?: {
             apiKey: string
@@ -124,6 +121,7 @@ export default class MindPalace extends MPCore {
         includeAllCoreMemories?: boolean
         maxHoursShortTermLength?: number
         limit?: number
+        model?: string
     }) {
         const relevantMemories = await this.findRelevantMemories(params)
         if (!relevantMemories?.length) {
@@ -188,6 +186,7 @@ These were retrieved as potentially relevant to the current conversation:${forma
     async remember (params: IngestingMessage & {
         groupId?: string | number
         userId?: string | number
+        model?: string
     }) {
         const metadata: VectorMetadata = {}
         if (params.groupId) {
@@ -197,8 +196,10 @@ These were retrieved as potentially relevant to the current conversation:${forma
             metadata.userId = String(params.userId)
         }
         const newMemories = await this.extractMemories(params, metadata.userId) || []
+        const mappedNewMemories = newMemories
+            .map(m => ({ ...m, userId: metadata.userId || null, groupId: metadata.groupId || null }))
         const { updatedMemories, staleMemoryIds } = await this.findAndMergeNewMemories(
-            newMemories.map(m => ({ ...m, userId: metadata.userId || null, groupId: metadata.groupId || null })),
+            { newMemories: mappedNewMemories, model: params.model },
             metadata,
         )
         await Promise.all([

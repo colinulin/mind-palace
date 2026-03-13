@@ -144,14 +144,11 @@ npm run dev
 |`customVectorStore?`|`IVectorStore`|Implement a custom Vector Store class to use other vector store providers.|See [Custom Classes](#custom-classes) section below|
 |`claudeConfig?`|`object`|Configuration for Claude LLM. Required if using Claude.|`{}`|
 |`claudeConfig?.apiKey`|`string`|API key for Claude.|`string`|
-|`claudeConfig?.generativeModel?`|`string`|Generative model to use for all text generation (defaults to `claude-haiku-4-5`). Available models can be found in the [Claude API docs](https://platform.claude.com/docs/en/about-claude/models/overview).|`string`|
 |`gptConfig?`|`object`|Configuration for GPT LLM. Required if using GPT and/or using Weaviate as your vector store.|`{}`|
 |`gptConfig?.apiKey`|`string`|API key for GPT.|`string`|
-|`gptConfig?.generativeModel?`|`string`|Generative model to use for all text generation (defaults to `gpt-5-mini`). Available models can be found in the [OpenAI docs](https://developers.openai.com/api/docs/models).|`string`|
 |`gptConfig?.embeddingModel?`|`object`|Embedding model to use for all embedding generation (defaults to `text-embedding-3-large`). Available models can be found in the [OpenAI API docs](https://developers.openai.com/api/docs/models).|`string`|
 |`geminiConfig?`|`object`|Configuration for Gemini LLM. Required if using Gemini.|`{}`|
 |`geminiConfig?.apiKey`|`string`|API key for Gemini.|`string`|
-|`geminiConfig?.generativeModel?`|`string`|Generative model to use for all text generation (defaults to `gemini-3-flash-preview`). Available models can be found in the [Gemini API docs](https://ai.google.dev/gemini-api/docs/models).|`string`|
 |`weaviateConfig?`|`object`|Configuration for Weaviate. This is the default Vector Store service used.|`{}`|
 |`weaviateConfig?.apiKey`|`string`|API key for Weaviate.|`string`|
 |`weaviateConfig?.clusterUrl`|`string`|Cluster URL for Weaviate.|`string`|
@@ -195,6 +192,7 @@ new MindPalace({
 |`maxHoursShortTermLength?`|`number`|Defines the maximum number of hours that a memory stored as "short-term" will be considered relevant (Default: `72`).|`number`|
 |`userId?`|`string` &#124; `number`|Filters memories by the specified user ID.|`string`|
 |`groupId?`|`string` &#124; `number`|Filters memories by a custom ID. This can be used with or separate from `userId` for added levels of memory grouping.|`string`|
+|`model?`|`string`|Specify a model name to use instead of the default for all LLM calls in this `recall()` method.|See [default models](#default-models) below for options|
 
 #### `queryVectorStoreDirectly`
 If you would like to bypass the LLM request process of recalling memories to save on token usage and greatly speed up recall timep, you can pass `queryVectorStoreDirectly: true` to the `recall()` method. This requires you to write your own vector query string and pass it to the `context` property. This will almost always result in less accurate or complete memory results, but it is much faster and cheaper. If you would like to try it out in your implementation, I recommend passing the user's request message as the `context`.
@@ -214,6 +212,7 @@ mp.recall({
 |`contextFormat`|`string`|If passing context in the Claude, GPT, or Gemini response format, you must include this parameter.|`Claude` &#124; `GPT` &#124; `Gemini`|
 |`userId?`|`string` &#124; `number`|Filters memories by the specified user ID.|`string`|
 |`groupId?`|`string` &#124; `number`|Filters memories by a custom ID. This can be used with or separate from `userId` for added levels of memory grouping.|`string`|
+|`model?`|`string`|Specify a model name to use instead of the default for all LLM calls in this `recall()` method.|See [default models](#default-models) below for options|
 
 ### Ingesting Message Formats
 When sending your context to `recall` or `remember`, you can choose from various formats. The most basic context is just a `string`, but various more complex formats are also supported.
@@ -286,6 +285,17 @@ type ToolResultBlock = {
 }
 type ContentBlock = TextBlock | ThinkingBlock | ToolUseBlock | ToolResultBlock
 ```
+
+### Default Models
+The LLM class has default generation models for both the `recall` and `remember` methods. These can be overriden by passing a `model` property when calling the method. You can find lists of current model names in LLM API Docs for the LLM you're using. If you choose to override the default models, I recommend using a very small, fast model for the `recall` method and a slightly smarter model for the `remember` method.
+|LLM|Method|Default|
+|-|-|-|
+|Claude|Recall|`claude-haiku-4-5`|
+|Claude|Remember|`claude-sonnet-4-6`|
+|GPT|Recall|`gpt-5-mini`|
+|GPT|Remember|`gpt-5.4`|
+|Gemini|Recall|`gemini-3.1-flash-lite-preview`|
+|Gemini|Remember|`'gemini-3.1-pro-preview`|
 
 ## Vector Database
 Mind Palace uses vector databases (like Pinecone and Weaviate) to store the contextual information it pulls from user interactions. By using a vector database as opposed to a traditional database or knowledge graph, Mind Palace is able to perform keyword and semanatic similarity searches to find more relevant memories.
@@ -371,7 +381,6 @@ If you JUST created an account and added credit to access the Gemini/OpenAI/Clau
 #### [Anthropic Claude Status](https://status.claude.com/)
 
 ## Future Updates:
-- [ ] Pinecone to also search in non-namespaced areas when passing a userId
 - [ ] Add CONTRIBUTION.md
 - [ ] Add reranker support
 - [ ] Add prompt customization support

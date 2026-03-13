@@ -32,7 +32,7 @@ export default class MPCore {
     protected Gemini: Gemini | undefined
 
     // Extract memories from context
-    protected async extractMemories (params: IngestingMessage, userId?: string) {
+    protected async extractMemories (params: IngestingMessage & { model?: string }, userId?: string) {
         let context: string | string[] | ContentBlock[]
         if ('contextFormat' in params) {
             if (params.contextFormat === 'Claude') {
@@ -72,6 +72,8 @@ export default class MPCore {
             responseSchema,
             messages,
             systemMessage,
+            model: params.model || this.LLM.defaultRememberModel,
+            reasoningLevel: 'medium',
         })
         this.tokenUsage.trackInference(tokenUsage, model)
 
@@ -89,6 +91,7 @@ export default class MPCore {
         limit?: number
         includeAllCoreMemories?: boolean
         maxHoursShortTermLength?: number
+        model?: string
     }) {
         let memorySearchQueries: string[]
 
@@ -130,6 +133,8 @@ export default class MPCore {
                 responseSchema,
                 messages,
                 systemMessage,
+                model: params.model || this.LLM.defaultRecallModel,
+                reasoningLevel: 'off' as const,
             }
             const { structuredResponse, tokenUsage, model } = await this.LLM.generateInference(generationConfig)
             this.tokenUsage.trackInference({
@@ -181,18 +186,17 @@ export default class MPCore {
 
     // Find and merge similar memories in vector store
     protected async findAndMergeNewMemories (
-        newMemories: Memory[],
+        params: { newMemories: Memory[]; model?: string },
         metadata?: VectorMetadata,
     ) {
         // iterate over all new memories searching for highly similar ones already in the vector db
         const filters = metadata && this.VectorStore.createFilters(metadata)
-        const nearMemoryGroups = await Promise.all(newMemories.map(async m => {
+        const nearMemoryGroups = await Promise.all(params.newMemories.map(async m => {
             const nearMemory = (await this.VectorStore.searchMemories({
                 queryStrings: [ m.summary ],
                 limit: 1,
                 mode: 'nearText',
                 filters,
-                includeNullWithFilter: true,
                 userId: metadata?.userId,
             }))?.[0]
 
@@ -230,6 +234,7 @@ export default class MPCore {
                     responseSchema,
                     messages,
                     systemMessage,
+                    model: params.model || this.LLM.defaultRememberModel,
                 })
                 this.tokenUsage.trackInference(tokenUsage, model)
 
@@ -295,7 +300,7 @@ export default class MPCore {
         const { query, limit, alpha, maxHoursShortTermLength } = params
         const filters = this.VectorStore.createFilters(params)
 
-        const vectorStoreResults = await this.VectorStore.searchMemories({
+        const vectorStoreResults = (await this.VectorStore.searchMemories({
             queryStrings: query,
             limit: limit ?? 5,
             mode: 'hybrid',
@@ -303,7 +308,7 @@ export default class MPCore {
             filters,
             userId: params.userId ? String(params.userId) : undefined,
             maxHoursShortTermLength,
-        })
+        })) || []
         
         return vectorStoreResults
     }

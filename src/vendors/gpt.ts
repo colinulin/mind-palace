@@ -15,7 +15,8 @@ import logger from '../logger'
  */
 export default class GPT extends LLM implements ILLM {
     embeddingModel = 'text-embedding-3-large'
-    generativeModel = 'gpt-5-nano'
+    defaultRecallModel = 'gpt-5-mini'
+    defaultRememberModel = 'gpt-5.4'
     private gptClient: OpenAI
 
     /**
@@ -26,9 +27,6 @@ export default class GPT extends LLM implements ILLM {
 
         if (config.embeddingModel) {
             this.embeddingModel = config.embeddingModel
-        }
-        if (config.generativeModel) {
-            this.generativeModel = config.generativeModel
         }
 
         this.gptClient = new OpenAI({
@@ -212,23 +210,25 @@ export default class GPT extends LLM implements ILLM {
     ) {
         const {
             messages,
-            model: customModel,
+            model,
             systemMessage,
             responseSchema,
             tools,
             toolChoice,
             maxTokens,
+            reasoningLevel,
         } = params
-        const model = customModel || this.generativeModel
         const openaiResponseFormat = zodResponseFormat(responseSchema, 'format')
+
+        const effort = reasoningLevel === 'off' ? 'minimal' : reasoningLevel || 'minimal'
 
         const responseCreateConfig: ResponseCreateParamsNonStreaming & { model: string } = {
             model,
             input: this.createGPTMessages(messages),
             instructions: systemMessage,
-            max_output_tokens: maxTokens || 1000,
+            max_output_tokens: maxTokens || 10000,
             tools: [],
-            reasoning: { effort: 'minimal', summary: null },
+            reasoning: { effort, summary: null },
             text: {
                 format: {
                     ...openaiResponseFormat.json_schema as ResponseFormatTextJSONSchemaConfig,

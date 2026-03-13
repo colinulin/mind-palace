@@ -26,7 +26,6 @@ export interface IVectorStore {
         limit: number
         mode: 'hybrid' | 'bm25' | 'nearText'
         alpha?: number
-        includeNullWithFilter?: boolean
     }): Promise<VectorMemory[] | undefined>
     fetchMemoriesById(memoryIds: string[]): Promise<Memory[]>
     fetchMemories(params?: { 

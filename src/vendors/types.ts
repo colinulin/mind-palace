@@ -46,13 +46,14 @@ export type ToolChoice = 'auto' | 'any' | 'none' | { name: string }
 
 // Generic Inference Generation
 export type GenerateInferenceParams<U extends ZodType<Record<string, unknown>>> = {
-    model?: string
+    model: string
     systemMessage: string
     messages: GenericMessage[]
     responseSchema: U
     tools?: Tool[]
     toolChoice?: ToolChoice
     maxTokens?: number
+    reasoningLevel?: 'minimal' | 'medium' | 'high' | 'off'
 }
 export type GenerateInferenceReturn<T extends Record<string, unknown>, U extends ZodType<T>> = {
     response: {

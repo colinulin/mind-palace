@@ -17,7 +17,8 @@ import MPCore from '../mindPalace'
  * but TypeScript interfaces cannot enforce static or protected members.
  */
 export interface ILLM {
-    generativeModel: string
+    defaultRecallModel: string
+    defaultRememberModel: string
 
     generateInference: <T extends Record<string, unknown>, U extends ZodType<T>>(
         params: GenerateInferenceParams<U>,
@@ -183,7 +184,6 @@ export abstract class LLM {
                     mode: 'hybrid',
                     limit: 10,
                     filters,
-                    includeNullWithFilter: true,
                     maxHoursShortTermLength: maxHoursShortTermLength || 72,
                 }) || []
                 const memoryResults = dataObjects?.reduce((acc, m) => {

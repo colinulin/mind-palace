@@ -62,15 +62,6 @@ const memorySearchQueries = () => z.object({
 })
 
 /**
- * Response schema for finding memories relevant to a given context
- */
-const relevantMemoryIds = () => z.object({
-    memoryIds: z.array(z.string().meta({
-        description: 'UUID of memory that is relevant to the conversation.',
-    })),
-})
-
-/**
  * Response schema for memory extraction from content
  */
 const extractedMemories = (memoryConfig: MemoryConfig) => z.object({
@@ -98,6 +89,5 @@ const mergedMemories = (memoryConfig: MemoryConfig) => z.object({
 export default {
     extractedMemories,
     mergedMemories,
-    relevantMemoryIds,
     memorySearchQueries,
 }

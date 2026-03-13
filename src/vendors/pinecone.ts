@@ -75,20 +75,8 @@ export default class MPPinecone extends VectorStore implements IVectorStore {
      */
     private buildFilter (
         filters: { key: keyof Memory; value: string | boolean }[],
-        includeNullWithFilter?: boolean,
     ) {
-        const conditions = filters.map(({ key, value }) => {
-            const equalCondition = { [key]: { $eq: value } }
-            if (includeNullWithFilter) {
-                return {
-                    $or: [
-                        equalCondition,
-                        { [key]: { $eq: '' } },
-                    ],
-                }
-            }
-            return equalCondition
-        })
+        const conditions = filters.map(({ key, value }) => ({ [key]: { $eq: value } }))
 
         return conditions.length === 1 ? conditions[0] : { $and: conditions }
     }
@@ -166,15 +154,14 @@ export default class MPPinecone extends VectorStore implements IVectorStore {
         limit: number
         mode: 'hybrid' | 'bm25' | 'nearText'
         alpha?: number
-        includeNullWithFilter?: boolean
         userId?: string
         maxHoursShortTermLength?: number
     }) {
-        const { queryStrings, filters, limit, includeNullWithFilter, userId } = params
+        const { queryStrings, filters, limit, userId } = params
         const index = this.getIndex(userId)
 
         const filter = filters?.length
-            ? this.buildFilter(filters, includeNullWithFilter)
+            ? this.buildFilter(filters)
             : undefined
 
         logger.info({ label: 'Pinecone', message: `Searching for "${queryStrings.join(', ')}".` })
@@ -212,11 +199,14 @@ export default class MPPinecone extends VectorStore implements IVectorStore {
             return acc
         }, new Map<string, VectorMemory>())
         const results = [ ...resultsMap.values() ]
+        const sortedAndLimitedResults = results
+            .sort((a, b) => b.score - a.score)
+            .slice(0, limit)
 
         logger.debug({ label: 'Pinecone', metadata: results })
         logger.info({ label: 'Pinecone', message: `Search returned ${results.length} results.` })
 
-        return results
+        return sortedAndLimitedResults
     }
 
     /**

@@ -64,6 +64,7 @@ router.post('/api/chat', async (req: Request, res: Response) => {
             messages,
             systemMessage: systemMessage || 'You are a helpful assistant.',
             responseSchema,
+            model: mp.LLM.defaultRememberModel,
         })
 
         mp.tokenUsage.trackInference(tokenUsage, model)

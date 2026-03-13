@@ -14,19 +14,16 @@ import logger from '../logger'
 
 export default class Gemini extends LLM implements ILLM {
     private geminiClient: GoogleGenAI
-    generativeModel = 'gemini-3-flash-preview'
+    defaultRecallModel = 'gemini-3.1-flash-lite-preview'
+    defaultRememberModel = 'gemini-3.1-pro-preview'
 
     /**
      * Initialize Gemini Client with the required API key and configuration.
      */
-    constructor (config: { apiKey: string; model?: string }) {
+    constructor (config: { apiKey: string }) {
         super()
 
-        const { apiKey, model } = config
-
-        if (model) {
-            this.generativeModel = model
-        }
+        const { apiKey } = config
 
         this.geminiClient = new GoogleGenAI({
             apiKey,
@@ -177,21 +174,27 @@ export default class Gemini extends LLM implements ILLM {
     ) {
         const {
             messages,
-            model: customModel,
+            model,
             systemMessage,
             responseSchema,
             tools,
             toolChoice,
             maxTokens,
+            reasoningLevel,
         } = params
-        const model = customModel || this.generativeModel
+
+        const thinkingLevel = reasoningLevel === 'high'
+            ? ThinkingLevel.HIGH
+            : reasoningLevel === 'medium'
+                ? ThinkingLevel.MEDIUM
+                : ThinkingLevel.MINIMAL
 
         const config: Parameters<typeof this.geminiClient.models.generateContent>[0]['config'] = {
             systemInstruction: systemMessage,
             responseMimeType: 'application/json',
             responseJsonSchema: toJSONSchema(responseSchema),
-            maxOutputTokens: maxTokens || 1000,
-            thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+            maxOutputTokens: maxTokens || 10000,
+            thinkingConfig: reasoningLevel === 'off' ? { thinkingBudget: 0 } : { thinkingLevel },
         }
 
         // if any tools are passed, convert them and attach to config

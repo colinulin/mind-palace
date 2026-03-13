@@ -36,10 +36,12 @@ export default class Weaviate extends VectorStore implements IVectorStore {
         {
             name: 'quote',
             dataType: dataType.TEXT,
+            indexSearchable: true,
         },
         {
             name: 'summary',
             dataType: dataType.TEXT,
+            indexSearchable: true,
         },
         {
             name: 'tags',
@@ -52,18 +54,22 @@ export default class Weaviate extends VectorStore implements IVectorStore {
         {
             name: 'term',
             dataType: dataType.TEXT,
+            indexFilterable: true,
         },
         {
             name: 'isCore',
             dataType: dataType.BOOLEAN,
+            indexFilterable: true,
         },
         {
             name: 'userId',
             dataType: dataType.TEXT,
+            indexFilterable: true,
         },
         {
             name: 'groupId',
             dataType: dataType.TEXT,
+            indexFilterable: true,
         },
     ]
 
@@ -213,7 +219,6 @@ export default class Weaviate extends VectorStore implements IVectorStore {
         limit: number
         mode: 'hybrid' | 'bm25' | 'nearText'
         alpha?: number
-        includeNullWithFilter?: boolean
         maxHoursShortTermLength?: number
     }) {
         await this.initWeaviateClient()
@@ -225,7 +230,7 @@ export default class Weaviate extends VectorStore implements IVectorStore {
             return
         }
 
-        const { includeNullWithFilter, queryStrings, limit, mode, filters, alpha: customAlpha } = params
+        const { queryStrings, limit, mode, filters, alpha: customAlpha } = params
 
         // configure return options for weaviate request
         const returnOpts: SearchOptions<Memory, undefined> = {
@@ -237,14 +242,7 @@ export default class Weaviate extends VectorStore implements IVectorStore {
         // apply property filter if passed
         if (filters?.length) {
             returnOpts.filters = Filters.and(
-                ...filters.map(filter =>
-                    includeNullWithFilter
-                        ? Filters.or(
-                            this.memoryCollection!.filter.byProperty(filter.key).equal(filter.value),
-                            this.memoryCollection!.filter.byProperty(filter.key).isNull(true),
-                        )
-                        : this.memoryCollection!.filter.byProperty(filter.key).equal(filter.value),
-                ),
+                ...filters.map(filter => this.memoryCollection!.filter.byProperty(filter.key).equal(filter.value)),
             )
         }
 
@@ -299,6 +297,8 @@ export default class Weaviate extends VectorStore implements IVectorStore {
         logger.info({ label: 'Weaviate', message: `Search returned ${results.length} results.` })
 
         const memories = results
+            .sort((a, b) => b.score - a.score)
+            .slice(0, limit)
 
         return memories
     }

@@ -7,19 +7,16 @@ import logger from '../logger'
 
 export default class Claude extends LLM implements ILLM {
     private claudeClient: Anthropic
-    generativeModel = 'claude-haiku-4-5'
+    defaultRecallModel = 'claude-haiku-4-5'
+    defaultRememberModel = 'claude-sonnet-4-6'
 
     /**
      * Initialize Claude Client with the required API key and configuration.
      */
-    constructor (config: { apiKey: string; model?: string }) {
+    constructor (config: { apiKey: string }) {
         super()
 
-        const { apiKey, model } = config
-
-        if (model) {
-            this.generativeModel = model
-        }
+        const { apiKey } = config
 
         this.claudeClient = new Anthropic({
             apiKey,
@@ -149,23 +146,32 @@ export default class Claude extends LLM implements ILLM {
     ) {
         const {
             messages,
-            model: customModel,
+            model,
             systemMessage,
             responseSchema,
             tools,
             toolChoice,
             maxTokens,
+            reasoningLevel,
         } = params
-        const model = customModel || this.generativeModel
+
+        const budgetTokens = reasoningLevel === 'high'
+            ? 7000
+            : reasoningLevel === 'medium'
+                ? 3000
+                : 1024
 
         // configure inference generation
         const inferenceParams: Anthropic.Beta.MessageCreateParamsNonStreaming = {
             model,
             messages: this.createClaudeMessages(messages),
-            max_tokens: maxTokens || 1000,
+            max_tokens: maxTokens || 10000,
             system: systemMessage,
             betas: [ 'structured-outputs-2025-11-13' ],
             output_format: betaZodOutputFormat(responseSchema),
+            thinking: reasoningLevel === 'off' 
+                ? { type: 'disabled' }
+                : { type: 'enabled', budget_tokens: budgetTokens },
         }
 
         // if any tools are passed, convert them to the correct format and attach to response creation config
