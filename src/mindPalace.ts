@@ -157,7 +157,8 @@ export default class MPCore {
             limit: params.limit,
             userId: params.userId,
             groupId: params.groupId,
-            includeCoreMemories: !params.includeAllCoreMemories,
+            // if including all core memories, we'll fetch them in a separate query so omit them from this query
+            omitCoreMemories: !!params.includeAllCoreMemories,
             maxHoursShortTermLength: params.maxHoursShortTermLength,
         })
 
@@ -192,13 +193,12 @@ export default class MPCore {
         metadata?: VectorMetadata,
     ) {
         // iterate over all new memories searching for highly similar ones already in the vector db
-        const filters = metadata && this.VectorStore.createFilters(metadata)
         const nearMemoryGroups = await Promise.all(params.newMemories.map(async m => {
             const nearMemory = (await this.VectorStore.searchMemories({
                 queryStrings: [ m.summary ],
                 limit: 1,
                 mode: 'nearText',
-                filters,
+                groupId: metadata?.groupId,
                 userId: metadata?.userId,
             }))?.[0]
 
@@ -296,19 +296,19 @@ export default class MPCore {
         alpha?: number 
         groupId?: string | number
         userId?: string | number
-        includeCoreMemories?: boolean
+        omitCoreMemories?: boolean
         maxHoursShortTermLength?: number
     }) {
-        const { query, limit, alpha, maxHoursShortTermLength } = params
-        const filters = this.VectorStore.createFilters(params)
+        const { query, limit, alpha, maxHoursShortTermLength, omitCoreMemories } = params
 
         const vectorStoreResults = (await this.VectorStore.searchMemories({
             queryStrings: query,
             limit: limit ?? 5,
             mode: 'hybrid',
             alpha: alpha || 0.5,
-            filters,
+            groupId: params.groupId ? String(params.groupId) : undefined,
             userId: params.userId ? String(params.userId) : undefined,
+            omitCoreMemories,
             maxHoursShortTermLength,
         })) || []
         

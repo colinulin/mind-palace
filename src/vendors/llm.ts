@@ -39,7 +39,7 @@ export interface ILLM {
                 input: number
                 output: number
             }
-            includeCoreMemories: boolean
+            omitCoreMemories: boolean
             maxHoursShortTermLength?: number
         }): Promise<
             {
@@ -64,7 +64,7 @@ export interface ILLM {
                 input: number
                 output: number
             }
-            includeCoreMemories: boolean
+            omitCoreMemories: boolean
             maxHoursShortTermLength?: number
         }): Promise<GenerateInferenceReturn<T, U>>
     }
@@ -102,7 +102,7 @@ export abstract class LLM {
             input: number
             output: number
         }
-        includeCoreMemories: boolean
+        omitCoreMemories: boolean
         maxHoursShortTermLength?: number
     }): Promise<
         {
@@ -128,7 +128,7 @@ export abstract class LLM {
             input: number
             output: number
         }
-        includeCoreMemories: boolean
+        omitCoreMemories: boolean
         maxHoursShortTermLength?: number
     }): Promise<GenerateInferenceReturn<T, U>>
     // implementation
@@ -145,7 +145,7 @@ export abstract class LLM {
             input: number
             output: number
         }
-        includeCoreMemories: boolean
+        omitCoreMemories: boolean
         maxHoursShortTermLength?: number
     }): Promise<
         { response: { summary: string; source?: string }[] | undefined; toolName: string; toolId: string }[]
@@ -159,7 +159,7 @@ export abstract class LLM {
             continueGenerationAfterProcessing,
             tokenUsage,
             metadata,
-            includeCoreMemories,
+            omitCoreMemories,
             maxHoursShortTermLength,
         } = params
         logger.debug({ label: 'LLM', metadata: toolUseBlocks })
@@ -169,12 +169,6 @@ export abstract class LLM {
             output: 0,
         }
 
-        // setup metadata filters
-        const filters = metadata && MindPalace.VectorStore.createFilters({
-            ...metadata,
-            includeCoreMemories,
-        })
-
         // process all tool use blocks
         const toolUsePromises = toolUseBlocks.map(async block => {
             if (block.name === 'search_memories') {
@@ -183,7 +177,9 @@ export abstract class LLM {
                     queryStrings: toolInput.queries,
                     mode: 'hybrid',
                     limit: 10,
-                    filters,
+                    userId: metadata?.userId,
+                    groupId: metadata?.groupId,
+                    omitCoreMemories,
                     maxHoursShortTermLength: maxHoursShortTermLength || 72,
                 }) || []
                 const memoryResults = dataObjects?.reduce((acc, m) => {
@@ -286,7 +282,7 @@ export abstract class LLM {
             retryLimit,
             generationConfig,
             tokenUsage: updatedTokenUsage,
-            includeCoreMemories,
+            omitCoreMemories,
         })
     }
 }

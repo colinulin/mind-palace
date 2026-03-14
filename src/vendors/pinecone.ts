@@ -71,17 +71,6 @@ export default class MPPinecone extends VectorStore implements IVectorStore {
     }
 
     /**
-     * Build a Pinecone metadata filter from generic filter params
-     */
-    private buildFilter (
-        filters: { key: keyof Memory; value: string | boolean }[],
-    ) {
-        const conditions = filters.map(({ key, value }) => ({ [key]: { $eq: value } }))
-
-        return conditions.length === 1 ? conditions[0] : { $and: conditions }
-    }
-
-    /**
      * Insert memories into Pinecone index
      */
     async insertMemoriesIntoVectorStore (
@@ -150,21 +139,27 @@ export default class MPPinecone extends VectorStore implements IVectorStore {
      */
     async searchMemories (params: {
         queryStrings: string[]
-        filters?: { key: keyof Memory; value: string | boolean }[]
+        userId?: string
+        groupId?: string
+        omitCoreMemories?: boolean
         limit: number
         mode: 'hybrid' | 'bm25' | 'nearText'
         alpha?: number
-        userId?: string
         maxHoursShortTermLength?: number
     }) {
-        const { queryStrings, filters, limit, userId } = params
+        const { queryStrings, limit, userId, groupId, omitCoreMemories } = params
         const index = this.getIndex(userId)
 
-        const filter = filters?.length
-            ? this.buildFilter(filters)
-            : undefined
-
         logger.info({ label: 'Pinecone', message: `Searching for "${queryStrings.join(', ')}".` })
+
+        const filter: { $and: { [key: string]: { $eq: string | boolean } }[] } = { $and: [] }
+
+        if (groupId) {
+            filter.$and.push({ groupId: { $eq: groupId } })
+        }
+        if (omitCoreMemories) {
+            filter.$and.push({ isCore: { $eq: false } })
+        }
 
         const searchPromises = queryStrings.map(text => index.searchRecords({
             query: {

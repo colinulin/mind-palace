@@ -220,15 +220,12 @@ router.post('/api/memories/resolve', async (req: Request, res: Response) => {
             return
         }
 
-        const filters = mp.VectorStore.createFilters({
-            userId: userId || undefined,
-            groupId: groupId || undefined,
-        })
         const results = await mp.VectorStore.searchMemories({
             queryStrings: [ summary ],
             limit: 1,
             mode: 'nearText',
-            filters: filters.length ? filters : undefined,
+            userId,
+            groupId,
         })
 
         if (!results?.length) {

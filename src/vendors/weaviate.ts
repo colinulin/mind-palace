@@ -7,6 +7,7 @@ import weaviate, {
     FetchObjectsOptions,
     Collection,
     Filters,
+    FilterValue,
 } from 'weaviate-client'
 import { Memory } from '../types'
 import GPT from './gpt'
@@ -215,7 +216,9 @@ export default class Weaviate extends VectorStore implements IVectorStore {
      */
     async searchMemories (params: {
         queryStrings: string[]
-        filters?: { key: keyof Memory; value: string | boolean }[]
+        userId?: string
+        groupId?: string
+        omitCoreMemories?: boolean
         limit: number
         mode: 'hybrid' | 'bm25' | 'nearText'
         alpha?: number
@@ -230,7 +233,7 @@ export default class Weaviate extends VectorStore implements IVectorStore {
             return
         }
 
-        const { queryStrings, limit, mode, filters, alpha: customAlpha } = params
+        const { queryStrings, limit, mode, userId, groupId, omitCoreMemories, alpha: customAlpha } = params
 
         // configure return options for weaviate request
         const returnOpts: SearchOptions<Memory, undefined> = {
@@ -239,11 +242,27 @@ export default class Weaviate extends VectorStore implements IVectorStore {
             limit,
         }
 
+        // if a userId is passed, limit to only records with that userId otherwise limit to those without ANY userId
+        const filters: FilterValue[] = []
+        if (userId) {
+            filters.push(this.memoryCollection!.filter.byProperty('userId').equal(userId))
+        } else {
+            filters.push(this.memoryCollection!.filter.byProperty('userId').isNull(true))
+        }
+
+        // if groupId is passed, limit to only records with that groupId, otherwise no filter on groupId
+        if (groupId) {
+            filters.push(this.memoryCollection!.filter.byProperty('groupId').equal(groupId))
+        }
+
+        // if omitting core memories, filter all isCore out otherwise apply no filter to isCore
+        if (omitCoreMemories) {
+            filters.push(this.memoryCollection!.filter.byProperty('isCore').equal(false))
+        }
+
         // apply property filter if passed
         if (filters?.length) {
-            returnOpts.filters = Filters.and(
-                ...filters.map(filter => this.memoryCollection!.filter.byProperty(filter.key).equal(filter.value)),
-            )
+            returnOpts.filters = Filters.and(...filters)
         }
 
         // calculate hybrid search alpha based on search mode
