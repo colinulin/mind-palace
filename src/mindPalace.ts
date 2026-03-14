@@ -54,8 +54,9 @@ export default class MPCore {
                 })
             }
             else {
-                logger.error({ label: 'MindPalace', message: 'Invalid message format. Unable to process data.' })
-                return
+                const errorMessage = 'Invalid message format. Unable to process data.'
+                logger.error({ label: 'MindPalace', message: errorMessage })
+                throw new Error(errorMessage)
             }
 
             // remove messages that contain memory context
@@ -118,8 +119,9 @@ export default class MPCore {
                     })
                 }
                 else {
-                    logger.error({ label: 'MindPalace', message: 'Invalid message format. Unable to process data.' })
-                    return
+                    const errorMessage = 'Invalid message format. Unable to process data.'
+                    logger.error({ label: 'MindPalace', message: errorMessage })
+                    throw new Error(errorMessage)
                 }
             } else {
                 context = params.context

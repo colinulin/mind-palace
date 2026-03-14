@@ -81,8 +81,9 @@ export default class MindPalace extends MPCore {
         }
 
         if (!this.VectorStore) {
-            logger.error({ label: 'MindPalace', message: 'No Vector Store configuration provided.' })
-            throw new Error('No Vector Store configuration provided.')
+            const errorMessage = 'No Vector Store configuration provided.'
+            logger.error({ label: 'MindPalace', message: errorMessage })
+            throw new Error(errorMessage)
         }
         
         // Setup LLM
@@ -110,8 +111,9 @@ export default class MindPalace extends MPCore {
         }
 
         if (!this.LLM) {
-            logger.error({ label: 'MindPalace', message: 'No LLM configuration provided.' })
-            throw new Error('No LLM configuration provided.')
+            const errorMessage = 'No LLM configuration provided.'
+            logger.error({ label: 'MindPalace', message: errorMessage })
+            throw new Error(errorMessage)
         }
     }
 
