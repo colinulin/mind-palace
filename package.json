@@ -35,7 +35,8 @@
     "dev:server": "tsx watch dev/server/index.ts",
     "test": "npm run test:unit",
     "test:unit": "vitest run --dir test/unit",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run lint && npm run test && npm run build"
   },
   "devDependencies": {
     "@ant-design/icons": "^6.1.0",
