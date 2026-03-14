@@ -29,7 +29,7 @@ export default class MPPinecone extends VectorStore implements IVectorStore {
         this.indexName = indexName || 'mind-palace'
 
         if (!apiKey) {
-            logger.warn({ label: 'Pinecone', message: 'No Pinecone API key provided.' })
+            throw new Error('No Pinecone API key provided.')
         }
 
         this.pineconeClient = new Pinecone({
@@ -229,53 +229,37 @@ export default class MPPinecone extends VectorStore implements IVectorStore {
     /**
      * Fetch memories by specific property values
      */
-    async fetchMemories (params?: {
-        filter?: { key: keyof Memory; value: string | boolean }
+    async fetchMemoriesWithFilter (params: {
+        filters?: { key: keyof Memory; value: string | boolean }[]
         limit?: number
         userId?: string
+        groupId?: string
     }) {
-        const index = this.getIndex(params?.userId)
-        const limit = params?.limit || 1000
+        const index = this.getIndex(params.userId)
+        const limit = params.limit || 1000
 
         logger.info({ label: 'Pinecone', message: 'Fetching memories.' })
 
-        const filter = params?.filter
-            ? { [params.filter.key]: { $eq: params.filter.value } }
-            : undefined
-
-        if (filter) {
-            const response = await index.fetchByMetadata({
-                filter,
-                limit,
-            })
-
-            logger.debug({ label: 'Pinecone', metadata: response })
-
-            const memories = Object.values(response.records)
-                .filter(record => record.metadata)
-                .map(record => this.toMemory(record.metadata!))
-
-            logger.info({ label: 'Pinecone', message: `Fetched ${memories.length} memories.` })
-            return memories
+        // create filters for request
+        const filter: { $and: { [key: string]: { $eq: string | boolean } }[] } = { $and: [] }
+        if (params.groupId) {
+            filter.$and.push({ groupId: { $eq: params.groupId } })
         }
 
-        // No filter: list vector IDs and fetch them
-        const listResponse = await index.listPaginated({ limit })
-        logger.debug({ label: 'Pinecone', metadata: listResponse })
-
-        const ids = (listResponse.vectors || [])
-            .map(v => v.id)
-            .filter((id): id is string => !!id)
-
-        if (ids.length === 0) {
-            logger.info({ label: 'Pinecone', message: 'Fetched 0 memories.' })
-            return []
+        if (params.filters?.length) {
+            filter.$and.push(...params.filters.map(f => (
+                { [f.key]: { $eq: f.value } }  
+            )))
         }
 
-        const fetchResponse = await index.fetch({ ids })
-        logger.debug({ label: 'Pinecone', metadata: fetchResponse })
+        const response = await index.fetchByMetadata({
+            filter,
+            limit,
+        })
 
-        const memories = Object.values(fetchResponse.records)
+        logger.debug({ label: 'Pinecone', metadata: response })
+
+        const memories = Object.values(response.records)
             .filter(record => record.metadata)
             .map(record => this.toMemory(record.metadata!))
 

@@ -30,8 +30,10 @@ export interface IVectorStore {
         alpha?: number
     }): Promise<VectorMemory[] | undefined>
     fetchMemoriesById(memoryIds: string[]): Promise<Memory[]>
-    fetchMemories(params?: { 
-        filter?: { key: keyof Memory; value: string | boolean }
+    fetchMemoriesWithFilter(params: { 
+        filters?: { key: keyof Memory; value: string | boolean }[]
+        userId?: string
+        groupId?: string
         limit?: number
     }): Promise<Memory[]>
 }

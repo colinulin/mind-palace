@@ -92,16 +92,18 @@ export default class Weaviate extends VectorStore implements IVectorStore {
         this.gptClient = openaiApiKey ? new GPT({ apiKey: openaiApiKey }) : undefined
 
         if (!openaiApiKey) {
-            logger.warn({ label: 'Weaviate', message: 'No OpenAI API key found.' })
+            throw new Error('No OpenAI API key found.')
         }
 
-        logger.info({ label: 'Weaviate', message: 'Initialized client.' })
+        if (!/^[A-Z][_0-9A-Za-z]*$/.test(this.collectionName)) {
+            throw new Error('Invalid collection name. Names must start with uppercase letter and only contain letters.')
+        }
     }
 
     // Create single connection to Weaviate cluster and store collection connection
     async initWeaviateClient () {
         if (this.weaviateClient) {
-            return this.weaviateClient
+            return
         }
 
         // Connect to weaviate
@@ -121,28 +123,42 @@ export default class Weaviate extends VectorStore implements IVectorStore {
         )
         this.weaviateClient = weaviateClient
 
+        logger.info({ label: 'Weaviate', message: 'Initialized client.' })
+
         // Connect to collection
         const collectionExists = await this.weaviateClient.collections.exists(this.collectionName)
         if (collectionExists) {
             logger.info({ label: 'Weaviate', message: `Collection (${this.collectionName}) found.` })
             this.memoryCollection = this.weaviateClient.collections.get<Memory>(this.collectionName)
-            return this.memoryCollection
+            return
+        }
+
+        if (this.memoryCollection) {
+            return
         }
 
         const memoryCollection = await this.weaviateClient.collections.create<Memory>({ 
             name: this.collectionName,
             properties: this.properties,
+            invertedIndex: {
+                indexNullState: true,
+            },
             vectorizers: weaviate.configure.vectors.text2VecOpenAI<Memory>({
                 sourceProperties: [ 'content', 'summary' ] as PrimitiveKeys<Memory>[],
                 model: this.gptClient?.embeddingModel,
                 dimensions: 3072,
                 type: 'text',
             }),
-        })
+        }).catch(() => { /** noop */ })
 
-        logger.info({ label: 'Weaviate', message: `Collection (${this.collectionName}) created.` })
+        if (!memoryCollection) {
+            return
+        }
+
+        logger.info({ label: 'Weaviate', message: `Collection (${memoryCollection.name}) created.` })
 
         this.memoryCollection = memoryCollection
+        this.collectionName = memoryCollection.name
     }
 
     // Close connection to Weaviate cluster
@@ -284,12 +300,13 @@ export default class Weaviate extends VectorStore implements IVectorStore {
         ))
 
         // combine and dedupe all results
-        const resultsMap = (await Promise.all(searchPromises)).reduce((acc, response) => {
-            if (!response) {
+        const searchResults = await Promise.all(searchPromises)
+        const resultsMap = searchResults.reduce((acc, result) => {
+            if (!result) {
                 return acc
             }
 
-            response.objects.forEach(result => {
+            result.objects.forEach(result => {
                 // determine if short-term expiration has passed and omit memory if so (default: 72 hours)
                 const updateTime = (result.metadata?.updateTime || new Date()).getTime()
                 const shortTermExpiration = 
@@ -352,10 +369,13 @@ export default class Weaviate extends VectorStore implements IVectorStore {
     /**
      * Fetch memories by specific property values
      */
-    async fetchMemories (params?: { 
-        filter?: { key: PrimitiveKeys<Memory>; value: string | boolean }
+    async fetchMemoriesWithFilter (params: { 
+        filters?: { key: PrimitiveKeys<Memory>; value: string | boolean }[]
+        userId?: string
+        groupId?: string
         limit?: number 
     }) {
+        const { userId, groupId } = params
         await this.initWeaviateClient()
         if (!this.memoryCollection) {
             logger.error({ 
@@ -371,8 +391,29 @@ export default class Weaviate extends VectorStore implements IVectorStore {
             returnMetadata: this.returnMetadata,
             returnProperties: this.returnProperties,
         }
-        if (params?.filter) {
-            query.filters = this.memoryCollection.filter.byProperty(params.filter.key).equal(params.filter.value)
+
+        // if a userId is passed, limit to only records with that userId otherwise limit to those without ANY userId
+        const filters: FilterValue[] = []
+        if (userId) {
+            filters.push(this.memoryCollection!.filter.byProperty('userId').equal(userId))
+        } else {
+            filters.push(this.memoryCollection!.filter.byProperty('userId').isNull(true))
+        }
+
+        // if groupId is passed, limit to only records with that groupId, otherwise no filter on groupId
+        if (groupId) {
+            filters.push(this.memoryCollection!.filter.byProperty('groupId').equal(groupId))
+        }
+
+        // convert array of filters into Weaviate filters
+        if (filters.length) {
+            filters.push(...(params?.filters || []).map(f =>
+                this.memoryCollection!.filter.byProperty(f.key).equal(f.value),
+            ))
+        }
+
+        if (filters?.length) {
+            query.filters = Filters.and(...filters)
         }
 
         const results = await this.memoryCollection.query.fetchObjects(query)

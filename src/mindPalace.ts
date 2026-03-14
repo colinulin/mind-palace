@@ -277,12 +277,13 @@ export default class MPCore {
     }
 
     // Fetch all core memories
-    async fetchCoreMemories (params: { userId?: string | number }) {
-        const { userId } = params
-        const coreMemories = await this.VectorStore.fetchMemories(
+    async fetchCoreMemories (params: { userId?: string | number; groupId?: string | number }) {
+        const { userId, groupId } = params
+        const coreMemories = await this.VectorStore.fetchMemoriesWithFilter(
             { 
-                filter: { key: 'isCore', value: true },
+                filters: [{ key: 'isCore', value: true }],
                 userId: userId ? String(userId) : undefined,
+                groupId: groupId ? String(groupId) : undefined,
             },
         )
 
