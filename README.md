@@ -308,7 +308,7 @@ The LLM class has default generation models for both the `recall` and `remember`
 |Gemini|Recall|`gemini-3.1-flash-lite-preview`|
 |Gemini|Remember|`'gemini-3.1-pro-preview`|
 
-## Vector Database
+## Vector Databases
 Mind Palace uses vector databases (like Pinecone and Weaviate) to store the contextual information it pulls from user interactions. By using a vector database as opposed to a traditional database or knowledge graph, Mind Palace is able to perform keyword and semanatic similarity searches to find more relevant memories.
 
 Both Weaviate and Pinecone offer decent free tier options for testing.
@@ -332,7 +332,6 @@ Pinecone has the option to use an "integrated embedding" which just means it han
 
 #### Namespacing
 Pinecone also uses something called "namespaces" to partition data within an index. If a `userId` is passed in the `remember()` call, the data will be namespaced with that `userId`. Using namespaces improves security (see: multi-tenancy) and improves query performance (queries are scoped to a specific namespace).
-
 
 ## Reranking
 Coming soon!
@@ -380,6 +379,11 @@ console.log('Cost by model:', tokenCounter.getModelTotals)
 ```
 
 **NOTE:** Embedding generation is not currently tracked. That said, embedding models are extremely cheap and memories are small so each embedding generation will likely cost less than a fraction of a cent. The most expensive embedding model that Mind Palace uses is the `text-embedding-3-large` model by OpenAI and that model costs $0.13 per million tokens.
+
+## Multi-Tenancy & Grouping (`userId` & `groupId`)
+This is just a fancy term for multiple users sharing the same database (kinda like how all databases work) and Mind Palace supports it! The key to multi-tenancy is ensuring that users can't access eachother's data. By passing a `userId` to `recall()` and `remember()`, strict data isolation is automatically enforced. Memories created by a user can only be recalled by that user. This includes all different types of memories: core memories, short-term, long-term, etc. The Pinecone vector store takes this security one step further by putting each user's data into its own namespace (you can read more about that [here](https://docs.pinecone.io/guides/index-data/implement-multitenancy)).
+
+Using `userId` to separate data is different than using `groupId` which should not be used for multi-tenancy. Passing a `groupId` will ensure that any memories related to the query are part of that group, but a `recall` call without a groupId has access to all groups. A `recall` call with no `userId` only has access to memories that don't have a `userId` assigned to them.
 
 ## Troubleshooting
 
