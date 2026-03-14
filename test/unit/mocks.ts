@@ -58,7 +58,7 @@ vi.mock('weaviate-client', () => {
 })
 
 // ── Pinecone mocks ──────────────────────────────────────────────────────────
-export const mockPineconeUpsert = vi.fn().mockResolvedValue({})
+export const mockPineconeUpsertRecords = vi.fn().mockResolvedValue({})
 export const mockPineconeDeleteMany = vi.fn().mockResolvedValue({})
 export const mockPineconeSearchRecords = vi.fn().mockResolvedValue({
     result: { hits: [] },
@@ -67,7 +67,7 @@ export const mockPineconeFetch = vi.fn().mockResolvedValue({ records: {} })
 export const mockPineconeFetchByMetadata = vi.fn().mockResolvedValue({ records: {} })
 export const mockPineconeListPaginated = vi.fn().mockResolvedValue({ vectors: [] })
 export const mockPineconeIndex = {
-    upsert: mockPineconeUpsert,
+    upsertRecords: mockPineconeUpsertRecords,
     deleteMany: mockPineconeDeleteMany,
     searchRecords: mockPineconeSearchRecords,
     fetch: mockPineconeFetch,

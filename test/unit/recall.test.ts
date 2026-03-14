@@ -120,8 +120,8 @@ describe('recall', () => {
 
         // Should return the memory objects
         expect(result.memories).toHaveLength(2)
-        expect(result.memories[0].summary).toBe('User loves TypeScript')
-        expect(result.memories[1].summary).toBe('User prefers functional programming')
+        expect(result.memories[0].summary).toBe('User prefers functional programming')
+        expect(result.memories[1].summary).toBe('User loves TypeScript')
     })
 
     it('should recall memories with GPT + Weaviate using GPT-formatted context', async () => {

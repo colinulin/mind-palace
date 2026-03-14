@@ -8,7 +8,7 @@ import {
     mockHybridQuery,
     mockPineconeSearchRecords,
     mockPineconeDeleteMany,
-    mockPineconeUpsert,
+    mockPineconeUpsertRecords,
     makeGptResponse,
     makeClaudeResponse,
 } from './mocks'
@@ -155,7 +155,7 @@ describe('remember', () => {
         })
 
         // Should insert the updated/merged memory
-        expect(mockPineconeUpsert).toHaveBeenCalled()
+        expect(mockPineconeUpsertRecords).toHaveBeenCalled()
 
         // Result should contain the merged memory
         expect(result).toHaveLength(1)
