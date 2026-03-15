@@ -28,18 +28,10 @@ export type Memory = {
 }
 
 // Chat ingesting message types
-export type IngestingMessage = {
-    context: string | string[] | ContentBlock[]
-} | {
-    context: Anthropic.Beta.Messages.BetaMessageParam[] | Anthropic.Messages.MessageParam[]
-    contextFormat: 'Claude'
-} | {
-    context: OpenAI.Responses.ResponseCreateParamsNonStreaming['input']
-    contextFormat: 'GPT'
-} | {
-    context: Gemini.Content[]
-    contextFormat: 'Gemini'
-}
+export type InputContext = string | string[] | ContentBlock[]
+    | Anthropic.Beta.Messages.BetaMessageParam[] | Anthropic.Messages.MessageParam[]
+    | OpenAI.Responses.ResponseCreateParamsNonStreaming['input']
+    | Gemini.Content[]
 
 // Metadata for vector store searching
 export type VectorMetadata = {

@@ -41,6 +41,11 @@ Create vector store queries to find memories that would help inform a response t
  * Prompt to extract memories from content blocks
  */
 const memoryExtraction = (context: ContentBlock[] | string | string[], userId?: string) => {
+    // remove past Mind Palace messages from context
+    const filteredContext = Array.isArray(context)
+        ? context.filter(c => typeof c === 'string' || !(c.type === 'text' && c.text.includes('<memory_context>')))
+        : context
+
     return {
         systemMessage: `You extract information from conversations and store it as memories in a vector database for future retrieval.
 
@@ -74,7 +79,7 @@ Summaries are embedded in a vector store and matched against future search queri
         messages: [
             {
                 role: userRole,
-                content: `<conversation>${JSON.stringify(context)}</conversation>
+                content: `<conversation>${JSON.stringify(filteredContext)}</conversation>
                 
 Extract any memories from this conversation that would be valuable for future reference. If nothing worth extracting is present, return an empty memories array.`,
             },

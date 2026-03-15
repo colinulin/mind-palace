@@ -40,10 +40,7 @@ const messages = [
         content: 'Can you help me write an email to my boss so I can get a raise?'
     }
 ]
-const memories = await mp.recall({
-    context: userRequest,
-    contextFormat: 'GPT'
-})
+const memories = await mp.recall(messages)
 ```
 4. Pass the response from `recall()` at the beginning of your inference generation messages.
 ```ts
@@ -60,13 +57,10 @@ const response = await openaiClient.responses.create({
 ```
 5. After the LLM session is complete, pass the messages from the session back to the Mind Palace class so it can pull out and store any new important information for next time.
 ```ts
-mp.remember({
-    context: messages,
-    contextFormat: 'GPT'
-})
+mp.remember(messages)
 ```
 
-*NOTE:* You can let this call happen asynchronously by omitting the `await`
+*NOTE:* You can let this call happen asynchronously by omitting the `await` but if you do, I'd recommend adding a `.catch()` block to prevent unhandled error exceptions.
 *NOTE 2:* It's a good idea to filter out extraneous content and content that you always include at the beginning of every session before you pass the data to the Mind Palace class. The point of the Mind Palace is to store information that can be learned from user interaction with the LLM. Memories that were fetched with `recall()` are automatically filtered out!
 
 ### Complete Example Code
@@ -92,10 +86,7 @@ const makeAIRequest = async (userRequest: string) => {
         },
     })
 
-    const memories = await mp.recall({
-        context: userRequest,
-        contextFormat: 'GPT'
-    })
+    const memories = await mp.recall(messages)
     const response = await openaiClient.responses.create({
         model: "gpt-5.4",
         input: [
@@ -106,10 +97,7 @@ const makeAIRequest = async (userRequest: string) => {
             ...messages,
         ]
     })
-    mp.remember({
-        context: messages,
-        contextFormat: 'GPT',
-    })
+    mp.remember(messages)
 
     return response
 }
@@ -167,7 +155,6 @@ npm run dev
 |`pineconeConfig?`|`object`|Configuration for Pinecone.|`{}`|
 |`pineconeConfig?.apiKey`|`string`|API key for Pinecone.|`string`|
 |`pineconeConfig?.indexName?`|`string`|Name of index in Pinecone for storing memories (defaults to `mind-palace`)|`string`|
-|`pineconeConfig?.embeddingModel?`|`string`|Pinecone has built-in embedding generation so you can choose which model to use (defaults to `multilingual-e5-large`). See section on [Pinecone](#pinecone) for more information.|`string`|
 |`memoryConfig?`|`object`|Configuration for memory storage including special properties and memory tags.|`MemoryConfig`|
 |`memoryConfig?.includeQuote?`|`boolean`|If true, a passage from the conversation containing the memory information will be included on the memory. This greatly increases vector memory size and creation time but can be useful for validating memories (Default: `false`).|`boolean`|
 |`memoryConfig?.includeSource?`|`boolean`|If true, a 1-5 word label identifying where the information orginated will be included on the memory object (Default: `false`).|`boolean`|
@@ -192,43 +179,44 @@ new MindPalace({
 })
 ```
 
-### `recall()`
+### `recall(rawContext: string | string[] | message[], config: object)`
+#### `rawContext`
+This is the request context that will be used to search for relevant memories. The recall method's goal is to find memories that provide relevant context and help better respond to this request context. See [Ingesting Message Formats](#ingesting-message-formats) below for options.
+
+#### `config`
 |Parameter|Type|Description|Options|
 |-|-|-|-|
-|`context`|`string` &#124; `string[]` &#124; `object`|This is the request that will be used to search for relevant memories. Its goal will be to find memories that provide relevant context and help better respond to the request.|See [Ingesting Message Formats](#ingesting-message-formats) below for options|
-|`contextFormat?`|`string`|If passing context in the Claude, GPT, or Gemini response format, you must include this parameter.|`Claude` &#124; `GPT` &#124; `Gemini`|
 |`queryVectorStoreDirectly?`|`boolean`|Bypass LLM vector query generation to query the vector store directly and return the top N memories. See [instructions below](#queryvectorstoredirectly) for more information on how to use this feature.|`boolean`|
-|`limit?`|`number`|Total number of memories to return (Default: `5`). **NOTE:** This is only used if `queryVectorStoreDirectly: true`.|`number`|
+|`limit?`|`number`|Total number of memories to return (Default: `10`). If including all core memories, core memories will be included in ADDITION to this limit.|`number`|
 |`includeAllCoreMemories?`|`boolean`|If `true`, all memories stored as "core" will be included in the return.|`boolean`|
 |`maxHoursShortTermLength?`|`number`|Defines the maximum number of hours that a memory stored as "short-term" will be considered relevant (Default: `72`).|`number`|
-|`userId?`|`string` &#124; `number`|Filters memories by the specified user ID.|`string`|
-|`groupId?`|`string` &#124; `number`|Filters memories by a custom ID. This can be used with or separate from `userId` for added levels of memory grouping.|`string`|
+|`userId?`|`string`|Filters memories by the specified user ID.|`string`|
+|`groupId?`|`string`|Filters memories by a custom ID. This can be used with or separate from `userId` for added levels of memory grouping.|`string`|
 |`model?`|`string`|Specify a model name to use instead of the default for all LLM calls in this `recall()` method.|See [default models](#default-models) below for options|
 
 #### `queryVectorStoreDirectly`
-If you would like to bypass the LLM request process of recalling memories to save on token usage and greatly speed up recall timep, you can pass `queryVectorStoreDirectly: true` to the `recall()` method. This requires you to write your own vector query string and pass it to the `context` property. This will almost always result in less accurate or complete memory results, but it is much faster and cheaper. If you would like to try it out in your implementation, I recommend passing the user's request message as the `context`.
+If you would like to bypass the LLM request process of recalling memories to save on token usage and greatly speed up recall timep, you can pass `queryVectorStoreDirectly: true` to the `recall()` method. This requires you to write your own vector query string and pass it to the `context` property. This will almost always result in less accurate or complete memory results, but it is much faster and cheaper. If you would like to try it out in your implementation, I recommend passing the user's last  message as the `context`.
 
 ```ts
 const userRequest = 'What is my favorite color?'
-mp.recall({
-    context: userRequest,
-    queryVectorStoreDirectly: true
-})
+const memories = await mp.recall(userRequest, { queryVectorStoreDirectly: true })
 ```
 
-### `remember()`
+### `remember(rawContext: string | string[] | message[], config: object)`
+#### `rawContext`
+This is the context that will be mined for important information to create and update memories. See [Ingesting Message Formats](#ingesting-message-formats) below for options.
+
+#### `config`
 |Parameter|Type|Description|Options|
 |-|-|-|-|
-|`context`|`string` &#124; `string[]` &#124; `object`|This is the context that will be mined for important information to create and update memories.|See [Ingesting Message Formats](#ingesting-message-formats) below for options|
-|`contextFormat`|`string`|If passing context in the Claude, GPT, or Gemini response format, you must include this parameter.|`Claude` &#124; `GPT` &#124; `Gemini`|
-|`userId?`|`string` &#124; `number`|Filters memories by the specified user ID.|`string`|
-|`groupId?`|`string` &#124; `number`|Filters memories by a custom ID. This can be used with or separate from `userId` for added levels of memory grouping.|`string`|
+|`userId?`|`string`|Filters memories by the specified user ID.|`string`|
+|`groupId?`|`string`|Filters memories by a custom ID. This can be used with or separate from `userId` for added levels of memory grouping.|`string`|
 |`model?`|`string`|Specify a model name to use instead of the default for all LLM calls in this `recall()` method.|See [default models](#default-models) below for options|
 
 ### Ingesting Message Formats
 When sending your context to `recall` or `remember`, you can choose from various formats. The most basic context is just a `string`, but various more complex formats are also supported.
 
-To make things as easy as possible, Mind Palace supports the default message input type for standard Claude, GPT (responses API), and Gemini generation requests. In other words, you can pass the entire request message array from any of the major LLMs directly to Mind Palace and let it do all of the work parsing it. Examples:
+To make things as easy as possible, Mind Palace supports the default message input type for standard Claud (both regular and beta), GPT (responses API), and Gemini generation requests. In other words, you can pass the entire request message array from any of the major LLMs directly to Mind Palace and let it do all of the work parsing it. Examples:
 ```ts
 const messages = [
     {
@@ -254,19 +242,14 @@ const response = await openaiClient.responses.create({
     model: "gpt-5.4",
     input: messages
 })
-mp.remember({
-    context: messages,
-    contextFormat: 'GPT'
-})
+mp.remember(messages)
 
 /* Claude */
 const response = await this.claudeClient.beta.messages.create({
     messages,
     model: "claude-opus-4-6"
 })
-mp.remember({
-    context: messages
-})
+mp.remember(messages)
 ```
 
 #### Custom Message Formats
@@ -336,7 +319,7 @@ Pinecone also uses something called "namespaces" to partition data within an ind
 ## Reranking
 Coming soon!
 
-## Custom Classes
+## Custom Classes (beta)
 If the available custom configuration options aren't enough for you, you can override the entire LLM and Vector Store classes simply by passing the initialized class with the request. I've provided Typescript interfaces and parent classes for both things to make implementation easier. To get started, create your classes like this:
 ```ts
 class CustomLLM extends LLM implements ILLM {
@@ -381,7 +364,7 @@ console.log('Cost by model:', tokenCounter.getModelTotals)
 **NOTE:** Embedding generation is not currently tracked. That said, embedding models are extremely cheap and memories are small so each embedding generation will likely cost less than a fraction of a cent. The most expensive embedding model that Mind Palace uses is the `text-embedding-3-large` model by OpenAI and that model costs $0.13 per million tokens.
 
 ## Multi-Tenancy & Grouping (`userId` & `groupId`)
-This is just a fancy term for multiple users sharing the same database (kinda like how all databases work) and Mind Palace supports it! The key to multi-tenancy is ensuring that users can't access eachother's data. By passing a `userId` to `recall()` and `remember()`, strict data isolation is automatically enforced. Memories created by a user can only be recalled by that user. This includes all different types of memories: core memories, short-term, long-term, etc. The Pinecone vector store takes this security one step further by putting each user's data into its own namespace (you can read more about that [here](https://docs.pinecone.io/guides/index-data/implement-multitenancy)).
+This is just a fancy term for multiple users sharing the same database (kinda like how all databases work) and Mind Palace supports it! The key to multi-tenancy is ensuring that users can't access each other's data. By passing a `userId` to `recall()` and `remember()`, strict data isolation is automatically enforced. Memories created by a user can only be recalled by that user. This includes all different types of memories: core memories, short-term, long-term, etc. The Pinecone vector store takes this security one step further by putting each user's data into its own namespace (you can read more about that [here](https://docs.pinecone.io/guides/index-data/implement-multitenancy)).
 
 Using `userId` to separate data is different than using `groupId` which should not be used for multi-tenancy. Passing a `groupId` will ensure that any memories related to the query are part of that group, but a `recall` call without a groupId has access to all groups. A `recall` call with no `userId` only has access to memories that don't have a `userId` assigned to them.
 

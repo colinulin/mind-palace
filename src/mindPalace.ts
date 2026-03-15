@@ -1,12 +1,11 @@
-import { ContentBlock } from './vendors/types'
 import Claude from './vendors/claude'
 import GPT from './vendors/gpt'
 import responseSchemas from './responseSchemas'
 import prompts from './prompts'
 import TokenCounter from './tokenCounter'
-import { IngestingMessage, Memory, MemoryConfig, VectorMetadata } from './types'
+import { InputContext, LLMName, Memory, MemoryConfig, VectorMetadata } from './types'
 import Weaviate from './vendors/weaviate'
-import { chunkArray, transformLLMMessagesToGenericBlocks } from './utils'
+import { chunkArray, convertInputToContext } from './utils'
 import logger from './logger'
 import Pinecone from './vendors/pinecone'
 import Gemini from './vendors/gemini'
@@ -26,54 +25,28 @@ export default class MPCore {
     protected Pinecone: Pinecone | undefined
 
     // LLMs
+    llmName!: LLMName
     LLM!: Claude | GPT | Gemini | ILLM
     protected Claude: Claude | undefined
     protected GPT: GPT | undefined
     protected Gemini: Gemini | undefined
 
     // Extract memories from context
-    protected async extractMemories (params: IngestingMessage & { model?: string }, userId?: string) {
-        let context: string | string[] | ContentBlock[]
-        if ('contextFormat' in params) {
-            if (params.contextFormat === 'Claude') {
-                context = transformLLMMessagesToGenericBlocks({
-                    messages: params.context,
-                    format: params.contextFormat,
-                })
-            }
-            else if (params.contextFormat === 'GPT') {
-                context = transformLLMMessagesToGenericBlocks({
-                    messages: params.context,
-                    format: params.contextFormat, 
-                })
-            }
-            else if (params.contextFormat === 'Gemini') {
-                context = transformLLMMessagesToGenericBlocks({
-                    messages: params.context,
-                    format: params.contextFormat,
-                })
-            }
-            else {
-                const errorMessage = 'Invalid message format. Unable to process data.'
-                logger.error({ label: 'MindPalace', message: errorMessage })
-                throw new Error(errorMessage)
-            }
-
-            // remove messages that contain memory context
-            context = context.filter(c => !(c.type === 'text' && c.text.includes('<memory_context>')))
-        } else {
-            context = params.context
-        }
+    protected async extractMemories (rawContext: InputContext, config: { model?: string; userId?: string }) {
+        const context = convertInputToContext({ 
+            context: rawContext, 
+            format: this.llmName,
+        })
 
         logger.info({ label: 'MindPalace', message: 'Beginning memory extraction.' })
 
         const responseSchema = responseSchemas.extractedMemories(this.memoryConfig)
-        const { messages, systemMessage } = prompts.memoryExtraction(context, userId)
+        const { messages, systemMessage } = prompts.memoryExtraction(context, config.userId)
         const { structuredResponse, tokenUsage, model } = await this.LLM.generateInference({
             responseSchema,
             messages,
             systemMessage,
-            model: params.model || this.LLM.defaultRememberModel,
+            model: config.model || this.LLM.defaultRememberModel,
             reasoningLevel: 'medium',
         })
         this.tokenUsage.trackInference(tokenUsage, model)
@@ -85,57 +58,30 @@ export default class MPCore {
     }
 
     // Find relevant memories to include in a chat
-    protected async findRelevantMemories (params: IngestingMessage & {
-        groupId?: string | number
-        userId?: string | number
+    protected async findRelevantMemories (rawContext: InputContext, config: {
+        groupId?: string
+        userId?: string
         queryVectorStoreDirectly?: boolean
         limit?: number
         includeAllCoreMemories?: boolean
         maxHoursShortTermLength?: number
         model?: string
     }) {
-        let memorySearchQueries: string[]
-
+        const context = convertInputToContext({ 
+            context: rawContext, 
+            format: this.llmName,
+        })
+        
         // if not querying vector store directly, use LLM to generate query strings
-        if (!params.queryVectorStoreDirectly) {
-            let context: string | string[] | ContentBlock[]
-            if ('contextFormat' in params) {
-                if (params.contextFormat === 'Claude') {
-                    context = transformLLMMessagesToGenericBlocks({ 
-                        messages: params.context, 
-                        format: params.contextFormat,
-                    })
-                }
-                else if (params.contextFormat === 'GPT') {
-                    context = transformLLMMessagesToGenericBlocks({
-                        messages: params.context,
-                        format: params.contextFormat, 
-                    })
-                }
-                else if (params.contextFormat === 'Gemini') {
-                    context = transformLLMMessagesToGenericBlocks({
-                        messages: params.context, 
-                        format: params.contextFormat, 
-                    })
-                }
-                else {
-                    const errorMessage = 'Invalid message format. Unable to process data.'
-                    logger.error({ label: 'MindPalace', message: errorMessage })
-                    throw new Error(errorMessage)
-                }
-            } else {
-                context = params.context
-            }
-
-            logger.info({ label: 'MindPalace', message: 'Searching for relevant memories.' })
-
+        let memorySearchQueries = typeof context === 'string' ? [ context ] : context as string[]
+        if (!config.queryVectorStoreDirectly) {
             const { messages, systemMessage } = prompts.relevantMemorySearch(context)
             const responseSchema = responseSchemas.memorySearchQueries()
             const generationConfig = {
                 responseSchema,
                 messages,
                 systemMessage,
-                model: params.model || this.LLM.defaultRecallModel,
+                model: config.model || this.LLM.defaultRecallModel,
                 reasoningLevel: 'off' as const,
             }
             const { structuredResponse, tokenUsage, model } = await this.LLM.generateInference(generationConfig)
@@ -143,33 +89,36 @@ export default class MPCore {
                 input: tokenUsage.input,
                 output: tokenUsage.output,
             }, model)
+
+            if (!structuredResponse?.queries) {
+                return []
+            }
             
-            memorySearchQueries = structuredResponse?.queries || []
-        }
-        // if querying vector store directly, use passed in string(s) as queries
-        else {
-            memorySearchQueries = typeof params.context === 'string' ? [ params.context ] : params.context as string[]
+            memorySearchQueries = structuredResponse.queries
         }
         
         // query vector store
-        const memorySearchPromise = this.searchMemories({
-            query: memorySearchQueries,
-            limit: params.limit,
-            userId: params.userId,
-            groupId: params.groupId,
+        const memorySearchPromise = this.VectorStore.searchMemories({
+            queryStrings: memorySearchQueries,
+            limit: config.limit ?? 10,
+            mode: 'nearText',
+            groupId: config.groupId,
+            userId: config.userId,
             // if including all core memories, we'll fetch them in a separate query so omit them from this query
-            omitCoreMemories: !!params.includeAllCoreMemories,
-            maxHoursShortTermLength: params.maxHoursShortTermLength,
+            omitCoreMemories: !!config.includeAllCoreMemories,
+            maxHoursShortTermLength: config.maxHoursShortTermLength,
         })
 
         // if including all core memories, do a separate core memory fetch
-        const coreMemoryPromise = params.includeAllCoreMemories
-            ? this.fetchCoreMemories({ userId: params.userId })
+        const coreMemoryPromise = config.includeAllCoreMemories
+            ? this.fetchCoreMemories({ userId: config.userId })
             : undefined
         const allMemories = await Promise.all([
             memorySearchPromise,
             coreMemoryPromise,
         ])
+
+        // flatten arrays of memories into a single array
         const memories = allMemories.flat().reduce((acc, m) => {
             if (!m) {
                 return acc
@@ -202,7 +151,8 @@ export default class MPCore {
                 userId: metadata?.userId,
             }))?.[0]
 
-            if ((nearMemory?.score || 0) < 0.3) {
+            // if no memories in vector store are at least 0.5 relevancy, assume no similar memories
+            if ((nearMemory?.score || 0) < 0.5) {
                 return {
                     newMemory: m,
                 }
@@ -214,6 +164,7 @@ export default class MPCore {
             }
         }))
 
+        // process new memories with their similar counterparts for deduping
         // process 10 at a time to prevent rate limiting
         const batchSize = 10
         const chunkedGroups = chunkArray(nearMemoryGroups.filter(nmg => !!nmg), batchSize)
@@ -277,42 +228,16 @@ export default class MPCore {
     }
 
     // Fetch all core memories
-    async fetchCoreMemories (params: { userId?: string | number; groupId?: string | number }) {
+    async fetchCoreMemories (params: { userId?: string; groupId?: string }) {
         const { userId, groupId } = params
         const coreMemories = await this.VectorStore.fetchMemoriesWithFilter(
             { 
                 filters: [{ key: 'isCore', value: true }],
-                userId: userId ? String(userId) : undefined,
-                groupId: groupId ? String(groupId) : undefined,
+                userId,
+                groupId,
             },
         )
 
         return coreMemories
-    }
-
-    // Search memory based on a search string and return top N relevant memories
-    async searchMemories (params: { 
-        query: string[]
-        limit?: number
-        alpha?: number 
-        groupId?: string | number
-        userId?: string | number
-        omitCoreMemories?: boolean
-        maxHoursShortTermLength?: number
-    }) {
-        const { query, limit, alpha, maxHoursShortTermLength, omitCoreMemories } = params
-
-        const vectorStoreResults = (await this.VectorStore.searchMemories({
-            queryStrings: query,
-            limit: limit ?? 5,
-            mode: 'hybrid',
-            alpha: alpha || 0.5,
-            groupId: params.groupId ? String(params.groupId) : undefined,
-            userId: params.userId ? String(params.userId) : undefined,
-            omitCoreMemories,
-            maxHoursShortTermLength,
-        })) || []
-        
-        return vectorStoreResults
     }
 }

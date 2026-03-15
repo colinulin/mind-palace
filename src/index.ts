@@ -1,6 +1,6 @@
 import Claude from './vendors/claude'
 import GPT from './vendors/gpt'
-import { IngestingMessage, LLMName, MemoryConfig, VectorMetadata, VectorStoreName } from './types'
+import { InputContext, LLMName, MemoryConfig, VectorMetadata, VectorStoreName } from './types'
 import Weaviate from './vendors/weaviate'
 import logger from './logger'
 import Pinecone from './vendors/pinecone'
@@ -40,7 +40,6 @@ export default class MindPalace extends MPCore {
         pineconeConfig?: {
             apiKey: string
             indexName?: string
-            embeddingModel?: string
         }
         memoryConfig?: MemoryConfig
     }) {
@@ -97,6 +96,7 @@ export default class MindPalace extends MPCore {
             this.Gemini = new Gemini(geminiConfig)
         }
 
+        this.llmName = llm || 'GPT'
         if (customLLM) {
             this.LLM = customLLM
         }
@@ -118,16 +118,16 @@ export default class MindPalace extends MPCore {
     }
 
     // Recall everything needed to provide context
-    async recall (params: IngestingMessage & {
-        groupId?: string | number
-        userId?: string | number
+    async recall (rawContext: InputContext, config: {
+        groupId?: string
+        userId?: string
         queryVectorStoreDirectly?: boolean
         includeAllCoreMemories?: boolean
         maxHoursShortTermLength?: number
         limit?: number
         model?: string
     }) {
-        const relevantMemories = await this.findRelevantMemories(params)
+        const relevantMemories = await this.findRelevantMemories(rawContext, config)
         if (!relevantMemories?.length) {
             logger.warn({ label: 'MindPalace', message: 'No relevant memories found.' })
             return {
@@ -145,7 +145,7 @@ export default class MindPalace extends MPCore {
                 const memoryMetadataFormatted = memoryMetadata.length ? ` [${memoryMetadata.join(', ')}]` : ''
                 const formattedMemory = `- ${m.summary}${memoryMetadataFormatted}`
 
-                if (params.includeAllCoreMemories && m.isCore) {
+                if (config.includeAllCoreMemories && m.isCore) {
                     acc.coreMemories += `\n${formattedMemory}`
                 } else {
                     acc.regularMemories += `\n${formattedMemory}`
@@ -160,7 +160,7 @@ export default class MindPalace extends MPCore {
         messageParts.push(`<memory_context>
 The following is information you already know from previous conversations. Incorporate this context naturally into your response without explicitly referencing that you are recalling memories unless the user asks. If any memory conflicts with something the user says in the current conversation, always defer to the current conversation.`)
 
-        if (params.includeAllCoreMemories && formattedMemories.coreMemories) {
+        if (config.includeAllCoreMemories && formattedMemories.coreMemories) {
             messageParts.push(`
 <core_memories>
 These are always-relevant facts about the context:${formattedMemories.coreMemories}
@@ -187,23 +187,17 @@ These were retrieved as potentially relevant to the current conversation:${forma
     // Ingest a conversation and store it as memories
     // If groupId/userId is passed, new memories will include these values and 
     // similar memory search will include filters for these values
-    async remember (params: IngestingMessage & {
-        groupId?: string | number
-        userId?: string | number
+    async remember (rawContext: InputContext, config: {
+        groupId?: string
+        userId?: string
         model?: string
     }) {
         const metadata: VectorMetadata = {}
-        if (params.groupId) {
-            metadata.groupId = String(params.groupId)
-        }
-        if (params.userId) {
-            metadata.userId = String(params.userId)
-        }
-        const newMemories = await this.extractMemories(params, metadata.userId) || []
+        const newMemories = await this.extractMemories(rawContext, config) || []
         const mappedNewMemories = newMemories
             .map(m => ({ ...m, userId: metadata.userId || null, groupId: metadata.groupId || null }))
         const { updatedMemories, staleMemoryIds } = await this.findAndMergeNewMemories(
-            { newMemories: mappedNewMemories, model: params.model },
+            { newMemories: mappedNewMemories, model: config.model },
             metadata,
         )
         await Promise.all([
