@@ -65,8 +65,8 @@ export default class MPPinecone extends VectorStore implements IVectorStore {
             source: meta.source,
             term: meta.term as Memory['term'],
             isCore: meta.isCore,
-            userId: meta.userId || null,
-            groupId: meta.groupId || null,
+            userId: meta.userId,
+            groupId: meta.groupId,
         }
     }
 
@@ -87,10 +87,11 @@ export default class MPPinecone extends VectorStore implements IVectorStore {
                 source: memory.source,
                 term: memory.term,
                 isCore: memory.isCore,
-                userId: metadata?.userId,
-                groupId: metadata?.groupId,
                 updatedAtUnix: new Date().getTime(),
                 createdAtUnix: new Date().getTime(),
+                // default userId and groupId to null so we don't have to have a null index
+                userId: metadata?.userId || 'null',
+                groupId: metadata?.groupId || 'null',
             }
             return {
                 id: randomUUID(),

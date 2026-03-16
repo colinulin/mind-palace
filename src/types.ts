@@ -23,8 +23,8 @@ export type Memory = {
     source?: string | undefined
     term?: 'long' | 'short'
     isCore?: boolean | undefined
-    userId: string | null
-    groupId: string | null
+    userId?: string
+    groupId?: string
 }
 
 // Chat ingesting message types

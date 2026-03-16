@@ -2,7 +2,6 @@ import weaviate, {
     SearchOptions,
     WeaviateClient,
     PropertyConfigCreate,
-    PrimitiveKeys,
     dataType,
     FetchObjectsOptions,
     Collection,
@@ -140,11 +139,8 @@ export default class Weaviate extends VectorStore implements IVectorStore {
         const memoryCollection = await this.weaviateClient.collections.create<Memory>({ 
             name: this.collectionName,
             properties: this.properties,
-            invertedIndex: {
-                indexNullState: true,
-            },
             vectorizers: weaviate.configure.vectors.text2VecOpenAI<Memory>({
-                sourceProperties: [ 'content', 'summary' ] as PrimitiveKeys<Memory>[],
+                sourceProperties: [ 'quote', 'summary' ] as (keyof Memory)[],
                 model: this.gptClient?.embeddingModel,
                 dimensions: 3072,
                 type: 'text',
@@ -193,8 +189,9 @@ export default class Weaviate extends VectorStore implements IVectorStore {
                 source: m.source,
                 term: m.term,
                 isCore: m.isCore,
-                userId: metadata?.userId || null,
-                groupId: metadata?.groupId || null,
+                // default userId and groupId to null so we don't have to have a null index
+                userId: metadata?.userId || 'null',
+                groupId: metadata?.groupId || 'null',
             },
         }))
 
@@ -203,6 +200,45 @@ export default class Weaviate extends VectorStore implements IVectorStore {
 
         logger.debug({ label: 'Weaviate', metadata: insertResponse })
         logger.info({ label: 'Weaviate', message: `Inserted ${dataObjects.length} memories into vector store.` })
+    }
+
+    /**
+     * Create query filters
+     */
+    createFilters (params: {
+        propertyFilters?: { key: keyof Memory; value: string | boolean }[]
+        userId?: string
+        groupId?: string
+        omitCoreMemories?: boolean
+    }): FilterValue[] {
+        const { propertyFilters, userId, groupId, omitCoreMemories } = params
+
+        // if a userId is passed, limit to only records with that userId otherwise limit to those without ANY userId
+        const filters: FilterValue[] = []
+        if (userId) {
+            filters.push(this.memoryCollection!.filter.byProperty('userId').equal(userId))
+        } else {
+            filters.push(this.memoryCollection!.filter.byProperty('userId').equal('null'))
+        }
+
+        // if groupId is passed, limit to only records with that groupId, otherwise no filter on groupId
+        if (groupId) {
+            filters.push(this.memoryCollection!.filter.byProperty('groupId').equal(groupId))
+        }
+
+        // if omitting core memories, filter all isCore out otherwise apply no filter to isCore
+        if (omitCoreMemories) {
+            filters.push(this.memoryCollection!.filter.byProperty('isCore').equal(false))
+        }
+
+        // convert array of filters into Weaviate filters
+        if (propertyFilters?.length) {
+            filters.push(...(propertyFilters || []).map(f =>
+                this.memoryCollection!.filter.byProperty(f.key).equal(f.value),
+            ))
+        }
+
+        return filters
     }
 
     /**
@@ -257,27 +293,14 @@ export default class Weaviate extends VectorStore implements IVectorStore {
             returnProperties: this.returnProperties,
             limit,
         }
-
-        // if a userId is passed, limit to only records with that userId otherwise limit to those without ANY userId
-        const filters: FilterValue[] = []
-        if (userId) {
-            filters.push(this.memoryCollection!.filter.byProperty('userId').equal(userId))
-        } else {
-            filters.push(this.memoryCollection!.filter.byProperty('userId').isNull(true))
-        }
-
-        // if groupId is passed, limit to only records with that groupId, otherwise no filter on groupId
-        if (groupId) {
-            filters.push(this.memoryCollection!.filter.byProperty('groupId').equal(groupId))
-        }
-
-        // if omitting core memories, filter all isCore out otherwise apply no filter to isCore
-        if (omitCoreMemories) {
-            filters.push(this.memoryCollection!.filter.byProperty('isCore').equal(false))
-        }
-
-        // apply property filter if passed
-        if (filters?.length) {
+        
+        // apply any filters passed
+        const filters = this.createFilters({
+            userId,
+            groupId,
+            omitCoreMemories,
+        })
+        if (filters.length) {
             returnOpts.filters = Filters.and(...filters)
         }
 
@@ -370,7 +393,7 @@ export default class Weaviate extends VectorStore implements IVectorStore {
      * Fetch memories by specific property values
      */
     async fetchMemoriesWithFilter (params: { 
-        filters?: { key: PrimitiveKeys<Memory>; value: string | boolean }[]
+        filters?: { key: keyof Memory; value: string | boolean }[]
         userId?: string
         groupId?: string
         limit?: number 
@@ -393,25 +416,11 @@ export default class Weaviate extends VectorStore implements IVectorStore {
         }
 
         // if a userId is passed, limit to only records with that userId otherwise limit to those without ANY userId
-        const filters: FilterValue[] = []
-        if (userId) {
-            filters.push(this.memoryCollection!.filter.byProperty('userId').equal(userId))
-        } else {
-            filters.push(this.memoryCollection!.filter.byProperty('userId').isNull(true))
-        }
-
-        // if groupId is passed, limit to only records with that groupId, otherwise no filter on groupId
-        if (groupId) {
-            filters.push(this.memoryCollection!.filter.byProperty('groupId').equal(groupId))
-        }
-
-        // convert array of filters into Weaviate filters
-        if (filters.length) {
-            filters.push(...(params?.filters || []).map(f =>
-                this.memoryCollection!.filter.byProperty(f.key).equal(f.value),
-            ))
-        }
-
+        const filters = this.createFilters({
+            propertyFilters: params.filters,
+            userId,
+            groupId,
+        })
         if (filters?.length) {
             query.filters = Filters.and(...filters)
         }

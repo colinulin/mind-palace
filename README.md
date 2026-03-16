@@ -156,7 +156,7 @@ npm run dev
 |`pineconeConfig?.apiKey`|`string`|API key for Pinecone.|`string`|
 |`pineconeConfig?.indexName?`|`string`|Name of index in Pinecone for storing memories (defaults to `mind-palace`)|`string`|
 |`memoryConfig?`|`object`|Configuration for memory storage including special properties and memory tags.|`MemoryConfig`|
-|`memoryConfig?.includeQuote?`|`boolean`|If true, a passage from the conversation containing the memory information will be included on the memory. This greatly increases vector memory size and creation time but can be useful for validating memories (Default: `false`).|`boolean`|
+|`memoryConfig?.includeQuote?`|`boolean`|If true, a short snippet from the conversation containing the memory information will be included on the memory. This is bundled with the summary text when creating the vector and helps with memory searching and deduping, but also increases vector memory size and creation time (Default: `true`).|`boolean`|
 |`memoryConfig?.includeSource?`|`boolean`|If true, a 1-5 word label identifying where the information orginated will be included on the memory object (Default: `false`).|`boolean`|
 |`memoryConfig?.includeTags?`|`boolean`|If true, each memory will include a list of tags from the predefined list. This must be set to true for the `memoryConfig.tags` property to be used (Default: `false`).|`boolean`|
 |`memoryConfig?.includeTerm?`|`boolean`|If true, memories will be marked as short- or long-term and short-term memories will become stale and be removed from recall results after a set period of time (Default: `true`).|`boolean`|

@@ -1,6 +1,6 @@
 import Claude from './vendors/claude'
 import GPT from './vendors/gpt'
-import { InputContext, LLMName, MemoryConfig, VectorMetadata, VectorStoreName } from './types'
+import { InputContext, LLMName, MemoryConfig, VectorStoreName } from './types'
 import Weaviate from './vendors/weaviate'
 import logger from './logger'
 import Pinecone from './vendors/pinecone'
@@ -14,6 +14,7 @@ export default class MindPalace extends MPCore {
     memoryConfig: MemoryConfig = {
         includeTerm: true,
         includeCore: true,
+        includeQuote: true,
         tags: [ 'database schema', 'response formatting', 'code style', 'institutional knowledge' ],
     }
 
@@ -127,6 +128,11 @@ export default class MindPalace extends MPCore {
         limit?: number
         model?: string
     }) {
+        this.validateMemoryMetadata({
+            userId: config.userId,
+            groupId: config.groupId,
+        })
+
         const relevantMemories = await this.findRelevantMemories(rawContext, config)
         if (!relevantMemories?.length) {
             logger.warn({ label: 'MindPalace', message: 'No relevant memories found.' })
@@ -192,19 +198,21 @@ These were retrieved as potentially relevant to the current conversation:${forma
         userId?: string
         model?: string
     }) {
-        const metadata: VectorMetadata = {}
+        this.validateMemoryMetadata({
+            userId: config.userId,
+            groupId: config.groupId,
+        })
+
         const newMemories = await this.extractMemories(rawContext, config) || []
-        const mappedNewMemories = newMemories
-            .map(m => ({ ...m, userId: metadata.userId || null, groupId: metadata.groupId || null }))
         const { updatedMemories, staleMemoryIds } = await this.findAndMergeNewMemories(
-            { newMemories: mappedNewMemories, model: config.model },
-            metadata,
+            { newMemories, model: config.model },
+            config,
         )
         await Promise.all([
-            this.VectorStore.deleteStaleMemories(staleMemoryIds, metadata.userId),
+            this.VectorStore.deleteStaleMemories(staleMemoryIds, config.userId),
             this.VectorStore.insertMemoriesIntoVectorStore(
                 updatedMemories, 
-                metadata,
+                config,
             ),
         ])
 

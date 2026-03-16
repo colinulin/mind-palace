@@ -31,7 +31,9 @@ export default class MPCore {
     protected GPT: GPT | undefined
     protected Gemini: Gemini | undefined
 
-    // Extract memories from context
+    /**
+     * Extract memories from context
+     */
     protected async extractMemories (rawContext: InputContext, config: { model?: string; userId?: string }) {
         const context = convertInputToContext({ 
             context: rawContext, 
@@ -57,7 +59,9 @@ export default class MPCore {
         return structuredResponse?.memories || []
     }
 
-    // Find relevant memories to include in a chat
+    /** 
+     * Find relevant memories to include in a chat
+     */
     protected async findRelevantMemories (rawContext: InputContext, config: {
         groupId?: string
         userId?: string
@@ -136,7 +140,9 @@ export default class MPCore {
         return memories
     }
 
-    // Find and merge similar memories in vector store
+    /**
+     * Find and merge similar memories in vector store
+     */
     protected async findAndMergeNewMemories (
         params: { newMemories: Memory[]; model?: string },
         metadata?: VectorMetadata,
@@ -205,13 +211,13 @@ export default class MPCore {
                 return [
                     {
                         ...structuredResponse.existingMemory,
-                        userId: memoryGroup.nearMemory.memory.userId || null,
-                        groupId: memoryGroup.nearMemory.memory.groupId || null,
+                        userId: memoryGroup.nearMemory.memory.userId,
+                        groupId: memoryGroup.nearMemory.memory.groupId,
                     },
                     ...(structuredResponse?.newMemory ? [{
                         ...structuredResponse.newMemory,
-                        userId: metadata?.userId || null,
-                        groupId: metadata?.groupId || null,
+                        userId: metadata?.userId,
+                        groupId: metadata?.groupId,
                     }] : []),
                 ]
             }))
@@ -228,7 +234,7 @@ export default class MPCore {
     }
 
     // Fetch all core memories
-    async fetchCoreMemories (params: { userId?: string; groupId?: string }) {
+    async fetchCoreMemories (params: VectorMetadata) {
         const { userId, groupId } = params
         const coreMemories = await this.VectorStore.fetchMemoriesWithFilter(
             { 
@@ -239,5 +245,12 @@ export default class MPCore {
         )
 
         return coreMemories
+    }
+
+    // Validate userId and groupId are valid if passed
+    protected validateMemoryMetadata (params: { userId?: string; groupId?: string }) {
+        if (params.userId === 'null' || params.groupId === 'null') {
+            throw new Error('UserID and GroupID cannot be set to the string literal, "null". See README for more info.')
+        }
     }
 }
