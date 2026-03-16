@@ -24,8 +24,8 @@ describe('remember', () => {
 
     it('should extract and store memories with GPT + Weaviate using GPT-formatted context', async () => {
         const extractedMemories = [
-            { summary: 'User prefers dark mode', term: 'long', isCore: false },
-            { summary: 'User works at Acme Corp', term: 'long', isCore: true },
+            { summary: 'User prefers dark mode', term: 'long', isCore: false, quote: 'I always use dark mode' },
+            { summary: 'User works at Acme Corp', term: 'long', isCore: true, quote: 'I work at Acme Corp' },
         ]
 
         // First call: extractMemories
@@ -52,10 +52,7 @@ describe('remember', () => {
             },
         ]
 
-        const result = await mp.remember({
-            context: gptMessages,
-            contextFormat: 'GPT',
-        })
+        const result = await mp.remember(gptMessages)
 
         // Should have called LLM to extract memories
         expect(mockResponsesCreate).toHaveBeenCalled()
@@ -78,7 +75,7 @@ describe('remember', () => {
 
     it('should extract and store memories with Claude + Pinecone using Claude-formatted context', async () => {
         const extractedMemories = [
-            { summary: 'User is learning Rust', term: 'short', isCore: false },
+            { summary: 'User is learning Rust', term: 'short', isCore: false, quote: 'I am learning Rust' },
         ]
 
         // extractMemories call
@@ -114,6 +111,7 @@ describe('remember', () => {
                     summary: 'User is actively learning Rust programming',
                     term: 'long',
                     isCore: false,
+                    quote: 'I am learning Rust',
                 },
                 newMemory: null,
             })),
@@ -137,9 +135,7 @@ describe('remember', () => {
                     },
                 ]
 
-        const result = await mp.remember({
-            context: claudeMessages,
-            contextFormat: 'Claude',
+        const result = await mp.remember(claudeMessages, {
             userId: 'user-42',
         })
 

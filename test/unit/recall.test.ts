@@ -101,10 +101,7 @@ describe('recall', () => {
             },
         ]
 
-        const result = await mp.recall({
-            context: claudeMessages,
-            contextFormat: 'Claude',
-        })
+        const result = await mp.recall(claudeMessages)
 
         // Should have called Claude LLM once to generate search queries
         expect(mockBetaMessagesCreate).toHaveBeenCalledTimes(1)
@@ -184,10 +181,7 @@ describe('recall', () => {
             },
         ]
 
-        const result = await mp.recall({
-            context: gptMessages,
-            contextFormat: 'GPT',
-        })
+        const result = await mp.recall(gptMessages)
 
         // Should have called GPT LLM once to generate search queries
         expect(mockResponsesCreate).toHaveBeenCalledTimes(1)

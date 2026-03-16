@@ -34,7 +34,7 @@ export default class MPCore {
     /**
      * Extract memories from context
      */
-    protected async extractMemories (rawContext: InputContext, config: { model?: string; userId?: string }) {
+    protected async extractMemories (rawContext: InputContext, config?: { model?: string; userId?: string }) {
         const context = convertInputToContext({ 
             context: rawContext, 
             format: this.llmName,
@@ -43,12 +43,12 @@ export default class MPCore {
         logger.info({ label: 'MindPalace', message: 'Beginning memory extraction.' })
 
         const responseSchema = responseSchemas.extractedMemories(this.memoryConfig)
-        const { messages, systemMessage } = prompts.memoryExtraction(context, config.userId)
+        const { messages, systemMessage } = prompts.memoryExtraction(context, config?.userId)
         const { structuredResponse, tokenUsage, model } = await this.LLM.generateInference({
             responseSchema,
             messages,
             systemMessage,
-            model: config.model || this.LLM.defaultRememberModel,
+            model: config?.model || this.LLM.defaultRememberModel,
             reasoningLevel: 'medium',
         })
         this.tokenUsage.trackInference(tokenUsage, model)
@@ -62,7 +62,7 @@ export default class MPCore {
     /** 
      * Find relevant memories to include in a chat
      */
-    protected async findRelevantMemories (rawContext: InputContext, config: {
+    protected async findRelevantMemories (rawContext: InputContext, config?: {
         groupId?: string
         userId?: string
         queryVectorStoreDirectly?: boolean
@@ -78,14 +78,14 @@ export default class MPCore {
         
         // if not querying vector store directly, use LLM to generate query strings
         let memorySearchQueries = typeof context === 'string' ? [ context ] : context as string[]
-        if (!config.queryVectorStoreDirectly) {
+        if (!config?.queryVectorStoreDirectly) {
             const { messages, systemMessage } = prompts.relevantMemorySearch(context)
             const responseSchema = responseSchemas.memorySearchQueries()
             const generationConfig = {
                 responseSchema,
                 messages,
                 systemMessage,
-                model: config.model || this.LLM.defaultRecallModel,
+                model: config?.model || this.LLM.defaultRecallModel,
                 reasoningLevel: 'off' as const,
             }
             const { structuredResponse, tokenUsage, model } = await this.LLM.generateInference(generationConfig)
@@ -104,18 +104,18 @@ export default class MPCore {
         // query vector store
         const memorySearchPromise = this.VectorStore.searchMemories({
             queryStrings: memorySearchQueries,
-            limit: config.limit ?? 10,
+            limit: config?.limit ?? 10,
             mode: 'nearText',
-            groupId: config.groupId,
-            userId: config.userId,
+            groupId: config?.groupId,
+            userId: config?.userId,
             // if including all core memories, we'll fetch them in a separate query so omit them from this query
-            omitCoreMemories: !!config.includeAllCoreMemories,
-            maxHoursShortTermLength: config.maxHoursShortTermLength,
+            omitCoreMemories: !!config?.includeAllCoreMemories,
+            maxHoursShortTermLength: config?.maxHoursShortTermLength,
         })
 
         // if including all core memories, do a separate core memory fetch
-        const coreMemoryPromise = config.includeAllCoreMemories
-            ? this.fetchCoreMemories({ userId: config.userId })
+        const coreMemoryPromise = config?.includeAllCoreMemories
+            ? this.fetchCoreMemories({ userId: config?.userId })
             : undefined
         const allMemories = await Promise.all([
             memorySearchPromise,

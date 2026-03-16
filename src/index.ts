@@ -119,7 +119,7 @@ export default class MindPalace extends MPCore {
     }
 
     // Recall everything needed to provide context
-    async recall (rawContext: InputContext, config: {
+    async recall (rawContext: InputContext, config?: {
         groupId?: string
         userId?: string
         queryVectorStoreDirectly?: boolean
@@ -129,8 +129,8 @@ export default class MindPalace extends MPCore {
         model?: string
     }) {
         this.validateMemoryMetadata({
-            userId: config.userId,
-            groupId: config.groupId,
+            userId: config?.userId,
+            groupId: config?.groupId,
         })
 
         const relevantMemories = await this.findRelevantMemories(rawContext, config)
@@ -151,7 +151,7 @@ export default class MindPalace extends MPCore {
                 const memoryMetadataFormatted = memoryMetadata.length ? ` [${memoryMetadata.join(', ')}]` : ''
                 const formattedMemory = `- ${m.summary}${memoryMetadataFormatted}`
 
-                if (config.includeAllCoreMemories && m.isCore) {
+                if (config?.includeAllCoreMemories && m.isCore) {
                     acc.coreMemories += `\n${formattedMemory}`
                 } else {
                     acc.regularMemories += `\n${formattedMemory}`
@@ -166,7 +166,7 @@ export default class MindPalace extends MPCore {
         messageParts.push(`<memory_context>
 The following is information you already know from previous conversations. Incorporate this context naturally into your response without explicitly referencing that you are recalling memories unless the user asks. If any memory conflicts with something the user says in the current conversation, always defer to the current conversation.`)
 
-        if (config.includeAllCoreMemories && formattedMemories.coreMemories) {
+        if (config?.includeAllCoreMemories && formattedMemories.coreMemories) {
             messageParts.push(`
 <core_memories>
 These are always-relevant facts about the context:${formattedMemories.coreMemories}
@@ -193,23 +193,23 @@ These were retrieved as potentially relevant to the current conversation:${forma
     // Ingest a conversation and store it as memories
     // If groupId/userId is passed, new memories will include these values and 
     // similar memory search will include filters for these values
-    async remember (rawContext: InputContext, config: {
+    async remember (rawContext: InputContext, config?: {
         groupId?: string
         userId?: string
         model?: string
     }) {
         this.validateMemoryMetadata({
-            userId: config.userId,
-            groupId: config.groupId,
+            userId: config?.userId,
+            groupId: config?.groupId,
         })
 
         const newMemories = await this.extractMemories(rawContext, config) || []
         const { updatedMemories, staleMemoryIds } = await this.findAndMergeNewMemories(
-            { newMemories, model: config.model },
+            { newMemories, model: config?.model },
             config,
         )
         await Promise.all([
-            this.VectorStore.deleteStaleMemories(staleMemoryIds, config.userId),
+            this.VectorStore.deleteStaleMemories(staleMemoryIds, config?.userId),
             this.VectorStore.insertMemoriesIntoVectorStore(
                 updatedMemories, 
                 config,

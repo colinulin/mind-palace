@@ -29,7 +29,8 @@ router.post('/api/recall', async (req: Request, res: Response) => {
 
         const checkpoint = markCheckpoint()
 
-        const result = await mp.recall(req.body)
+        const { context, ...config } = req.body
+        const result = await mp.recall(context, config)
 
         const tokenUsage = serializeTokenUsage(mp)
 
@@ -89,7 +90,8 @@ router.post('/api/remember', async (req: Request, res: Response) => {
 
         const checkpoint = markCheckpoint()
 
-        const memories = await mp.remember(req.body)
+        const { context, ...config } = req.body
+        const memories = await mp.remember(context, config)
 
         res.json({
             memories,
