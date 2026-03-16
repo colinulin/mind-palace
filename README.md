@@ -296,6 +296,9 @@ Mind Palace uses vector databases (like Pinecone and Weaviate) to store the cont
 
 Both Weaviate and Pinecone offer decent free tier options for testing.
 
+### Embedded Property
+By default, a concatenated version of `summary` and `quote` will be embedded and searched against for memory retrieval and deduping purposes. If you disable `memoryConfig.includeQuote` when initializing Mind Palace, only the summary property will be used for the embedding.
+
 ### Weaviate
 Weaviate is the default vector database just because it's my personal preference and I've used it the most. If you choose to use Weaviate, you MUST supply an OpenAI API Key. This is because Weaviate does not generate its own embeddings and, therefore, we use OpenAI's embedding models to generate them. Don't worry, OpenAI's embedding model is fantastic and cheap.
 
@@ -306,7 +309,7 @@ To get started using Weaviate, [create a Weaviate account](https://console.weavi
 You must create your index in Pinecone first before running Mind Palace. During creation, make sure to:
 1. Set the name to `mind-palace` (or your own custom name but then make sure you pass that name to `pineconeConfig.indexName` when you init MindPalace)
 2. Select an embedding model that has a vector type of `dense` and supports integrated embedding
-3. Set the "Field map" to `summary` (this is very important and if you miss this step the integrated embeddings won't work)
+3. Set the "Field map" to `summaryQuoteConcat` (this is very important and if you miss this step the integrated embeddings won't work)
 
 #### Embeddings
 Pinecone has the option to use an "integrated embedding" which just means it handles embedding creation without you having to use a third-party. For this reason, if you're using Pinecone, you don't have to provide OpenAI API credentials. When creating your index in Pinecone, you can configure the embedding model of your choice. Make sure you choose an embedding model that is listed as an "integrated embedding" and that has a vector type of "dense." The only downside to Pinecone's current integration embedding feature is that none of the models support hybrid search. If you need hybrid search, use Weaviate and supply an OpenAI API Key.

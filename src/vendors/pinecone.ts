@@ -79,20 +79,22 @@ export default class MPPinecone extends VectorStore implements IVectorStore {
     ) {
         const index = this.getIndex(metadata?.userId)
 
-        const records = memories.map(memory => {
-            const memoryMetadata = {
-                quote: memory.quote,
-                summary: memory.summary,
-                tags: memory.tags,
-                source: memory.source,
-                term: memory.term,
-                isCore: memory.isCore,
+        const records = memories.map(m => {
+            const memoryMetadata: { [key: string]: string | boolean | string[] | number | undefined } = {
+                quote: m.quote,
+                summary: m.summary,
+                tags: m.tags,
+                source: m.source,
+                term: m.term,
+                isCore: m.isCore,
+                summaryQuoteConcat: m.quote ? `Summary: ${m.summary}\n\nQuote: ${m.quote}` : m.summary,
                 updatedAtUnix: new Date().getTime(),
                 createdAtUnix: new Date().getTime(),
                 // default userId and groupId to null so we don't have to have a null index
                 userId: metadata?.userId || 'null',
                 groupId: metadata?.groupId || 'null',
             }
+
             return {
                 id: randomUUID(),
                 ...Object.keys(memoryMetadata)

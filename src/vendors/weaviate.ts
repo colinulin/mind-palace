@@ -140,7 +140,7 @@ export default class Weaviate extends VectorStore implements IVectorStore {
             name: this.collectionName,
             properties: this.properties,
             vectorizers: weaviate.configure.vectors.text2VecOpenAI<Memory>({
-                sourceProperties: [ 'quote', 'summary' ] as (keyof Memory)[],
+                sourceProperties: [ 'summaryQuoteConcat' as 'summary' ] as (keyof Memory)[],
                 model: this.gptClient?.embeddingModel,
                 dimensions: 3072,
                 type: 'text',
@@ -189,6 +189,7 @@ export default class Weaviate extends VectorStore implements IVectorStore {
                 source: m.source,
                 term: m.term,
                 isCore: m.isCore,
+                summaryQuoteConcat: m.quote ? `Summary: ${m.summary}\n\nQuote: ${m.quote}` : m.summary,
                 // default userId and groupId to null so we don't have to have a null index
                 userId: metadata?.userId || 'null',
                 groupId: metadata?.groupId || 'null',
