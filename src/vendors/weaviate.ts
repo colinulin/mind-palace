@@ -18,6 +18,7 @@ export default class Weaviate extends VectorStore implements IVectorStore {
     private collectionName: string
     private clusterUrl: string
     private apiKey: string
+    private initPromise: Promise<void> | undefined = undefined
 
     // OpenAI connection for embedding generation
     private openaiApiKey?: string
@@ -71,6 +72,11 @@ export default class Weaviate extends VectorStore implements IVectorStore {
             dataType: dataType.TEXT,
             indexFilterable: true,
         },
+        {
+            name: 'summaryQuoteConcat' as 'summary',
+            dataType: dataType.TEXT,
+            indexSearchable: true,
+        },
     ]
 
     constructor (config: { 
@@ -105,6 +111,17 @@ export default class Weaviate extends VectorStore implements IVectorStore {
             return
         }
 
+        if (this.initPromise) {
+            return this.initPromise
+        }
+
+        this.initPromise = this._initWeaviateClient()
+
+        return this.initPromise
+    }
+
+    // Initialize Weaviate client and create new collection if none exists
+    async _initWeaviateClient () {
         // Connect to weaviate
         const weaviateClient = await weaviate.connectToWeaviateCloud(
             this.clusterUrl,

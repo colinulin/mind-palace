@@ -14,7 +14,11 @@ const logger = (type: LogType, params: LogParams) => {
     const logLevel = (process.env.MIND_PALACE_LOG_LEVEL as LogLevel | undefined) || 'off'
     const { message, label, metadata } = params
     const formattedMetadata = JSON.stringify(metadata, null, 2)
-    const logData = [ type, label.toUpperCase(), message, formattedMetadata ]
+
+    const logData = [ type, label.toUpperCase(), message ]
+    if (formattedMetadata) {
+        logData.push(formattedMetadata)
+    }
 
     if (logLevel === 'off') {
         return
